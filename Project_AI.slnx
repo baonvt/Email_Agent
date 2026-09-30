@@ -1,0 +1,10 @@
+<Solution>
+  <Project Path="docker-compose.dcproj">
+    <Build />
+  </Project>
+  <Project Path="Project_AI.Application/Project_AI.Application.csproj" />
+  <Project Path="Project_AI.Domain/Project_AI.Domain.csproj" />
+  <Project Path="Project_AI.Infrastructure/Project_AI.Infrastructure.csproj" />
+  <Project Path="Project_AI/Project_AI.API.csproj" />
+  <Project Path="Project_AI.Tests/Project_AI.Tests.csproj" />
+</Solution>

@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+.vs/
+.vscode/
+*.user
+.env
+.env.*
+!.env.example
+TestResults/
+*.trx
+artifacts/

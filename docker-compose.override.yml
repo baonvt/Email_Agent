@@ -1,0 +1,10 @@
+# Local development only. Visual Studio can add its generated debug overrides.
+services:
+  project_ai.api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: 8080
+      AuthWeb__AllowInsecureCookiesForDevelopment: "true"
+      Database__MigrateOnStartup: "true"
+    ports:
+      - "127.0.0.1:8080:8080"
