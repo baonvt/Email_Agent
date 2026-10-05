@@ -16,7 +16,9 @@ public sealed class AuthBrowserGuard
 
     public async Task InvokeAsync(HttpContext context, IOptions<AuthWebOptions> options)
     {
-        if (context.GetEndpoint() is null || !context.Request.Path.StartsWithSegments("/api/auth"))
+        var isBrowserPath = context.Request.Path.StartsWithSegments("/api/auth")
+            || context.Request.Path.StartsWithSegments("/api/mailboxes");
+        if (context.GetEndpoint() is null || !isBrowserPath)
         {
             await _next(context);
             return;
@@ -24,6 +26,7 @@ public sealed class AuthBrowserGuard
 
         context.Response.Headers.CacheControl = "no-store";
         context.Response.Headers.Pragma = "no-cache";
+        context.Response.Headers["Referrer-Policy"] = "no-referrer";
         if (HttpMethods.IsPost(context.Request.Method))
         {
             var origin = context.Request.Headers.Origin.ToString();

@@ -43,7 +43,13 @@ public static class ResponseCodes
         _ => (int)status >= 500 ? ErrorCode.InternalError : ErrorCode.InvalidInput
     };
 
-    public static string CodeFor(ErrorCode code) => JsonNamingPolicy.SnakeCaseLower.ConvertName(code.ToString());
+    public static string CodeFor(ErrorCode code) => code switch
+    {
+        ErrorCode.OAuthRejected => "oauth_rejected",
+        ErrorCode.OAuthDenied => "oauth_denied",
+        ErrorCode.InvalidOAuthState => "invalid_oauth_state",
+        _ => JsonNamingPolicy.SnakeCaseLower.ConvertName(code.ToString())
+    };
 
     public static string CodeFor(HttpStatusCode status) => status switch
     {
