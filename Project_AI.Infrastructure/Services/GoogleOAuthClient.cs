@@ -118,16 +118,32 @@ public sealed class GoogleOAuthClient : IGoogleOAuthClient
         }
     }
 
+    public async Task<GoogleTokenSet> RefreshAsync(string refreshToken, CancellationToken cancellationToken)
+    {
+        var settings = GetSettings();
+        using var request = new HttpRequestMessage(HttpMethod.Post, TokenEndpoint)
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["client_id"] = settings.ClientId, ["client_secret"] = settings.ClientSecret,
+                ["grant_type"] = "refresh_token", ["refresh_token"] = refreshToken
+            })
+        };
+        return ToTokenSet(await SendAsync<TokenResult>(request, cancellationToken));
+    }
+
     private GoogleTokenSet ToTokenSet(TokenResult response)
     {
         if (string.IsNullOrWhiteSpace(response.AccessToken) || response.AccessToken.Length > 16384
+            || response.RefreshToken?.Length > 16384 || response.Scope?.Length > 4096
             || !string.Equals(response.TokenType, "Bearer", StringComparison.OrdinalIgnoreCase)
             || response.ExpiresIn is <= 0 or > 86400 || response.RefreshTokenExpiresIn is <= 0)
         {
             throw Unavailable();
         }
         var now = _timeProvider.GetUtcNow();
-        return new GoogleTokenSet(response.AccessToken, response.RefreshToken, now.AddSeconds(response.ExpiresIn),
+        return new GoogleTokenSet(response.AccessToken,
+            string.IsNullOrWhiteSpace(response.RefreshToken) ? null : response.RefreshToken, now.AddSeconds(response.ExpiresIn),
             response.RefreshTokenExpiresIn is int seconds ? now.AddSeconds(seconds) : null, response.Scope ?? "");
     }
 

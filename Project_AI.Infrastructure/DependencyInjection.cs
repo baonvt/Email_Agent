@@ -125,5 +125,6 @@ public static class DependencyInjection
         services.AddHttpClient<IGoogleOAuthClient, GoogleOAuthClient>(client => client.Timeout = TimeSpan.FromSeconds(15));
         services.AddSingleton<MailboxTokenProtector>();
         services.AddScoped<IMailboxConnectionStore, MailboxConnectionRepository>();
+        services.AddScoped<MailboxAccessTokenService>();
     }
 }
