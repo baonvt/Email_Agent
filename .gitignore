@@ -1,11 +1,53 @@
-**/bin/
-**/obj/
+# .NET build and package outputs
+bin/
+obj/
+artifacts/
+packages/
+*.nupkg
+*.snupkg
+
+# Local IDE state (keep shared solution/project files)
 .vs/
 .vscode/
+.idea/
+_ReSharper*/
 *.user
+*.suo
+*.rsuser
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+*.dbmdl
+*.jfm
+
+# Local configuration and credentials
 .env
 .env.*
 !.env.example
+secrets.json
+secrets.*.json
+appsettings.Local.json
+appsettings.*.Local.json
+*.pfx
+*.p12
+*.pem
+*.key
+DataProtection-Keys/
+
+# Runtime files, logs and verification outputs
+logs/
+*.log
+*.db
+*.db-shm
+*.db-wal
 TestResults/
 *.trx
-artifacts/
+coverage/
+*.coverage
+*.coveragexml
+
+# Frontend dependencies and local OS files
+node_modules/
+.DS_Store
+Thumbs.db
+Desktop.ini
