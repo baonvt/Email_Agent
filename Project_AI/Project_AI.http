@@ -1,6 +1,85 @@
-@Project_AI_HostAddress = http://localhost:5134
+@Project_AI_HostAddress = http://localhost:8080
+@FrontendOrigin = http://localhost:3000
+@Email = your-email@example.com
+@Password = Replace-With!StrongPassword2026
+@NewPassword = Replace-With!NewStrongPassword2026
+@AccessToken = paste-access-token-here
+@UserId = 00000000-0000-0000-0000-000000000000
+@EmailToken = paste-token-from-email-link-here
+@ResetToken = paste-token-from-password-reset-link-here
 
-GET {{Project_AI_HostAddress}}/weatherforecast/
-Accept: application/json
+GET {{Project_AI_HostAddress}}/health/ready
 
 ###
+
+POST {{Project_AI_HostAddress}}/api/auth/register
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Content-Type: application/json
+
+{"email":"{{Email}}","password":"{{Password}}","displayName":"InboxAgent User"}
+
+###
+POST {{Project_AI_HostAddress}}/api/auth/confirm-email
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Content-Type: application/json
+
+{"userId":"{{UserId}}","token":"{{EmailToken}}"}
+
+###
+POST {{Project_AI_HostAddress}}/api/auth/login
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Content-Type: application/json
+
+{"email":"{{Email}}","password":"{{Password}}"}
+
+### Client cần cookie jar để nhận và gửi HttpOnly refresh cookie.
+POST {{Project_AI_HostAddress}}/api/auth/refresh
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+
+###
+GET {{Project_AI_HostAddress}}/api/auth/me
+Authorization: Bearer {{AccessToken}}
+
+###
+POST {{Project_AI_HostAddress}}/api/auth/forgot-password
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Content-Type: application/json
+
+{"email":"{{Email}}"}
+
+###
+POST {{Project_AI_HostAddress}}/api/auth/resend-confirmation
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Content-Type: application/json
+
+{"email":"{{Email}}"}
+
+### Dùng token từ link reset password, không dùng token xác nhận email.
+POST {{Project_AI_HostAddress}}/api/auth/reset-password
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Content-Type: application/json
+
+{"userId":"{{UserId}}","token":"{{ResetToken}}","newPassword":"{{NewPassword}}"}
+
+###
+POST {{Project_AI_HostAddress}}/api/auth/logout
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Authorization: Bearer {{AccessToken}}
+
+###
+POST {{Project_AI_HostAddress}}/api/auth/logout-all
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Authorization: Bearer {{AccessToken}}
+
+### Cần login lại sau khi được cấp role Admin.
+GET {{Project_AI_HostAddress}}/api/admin/status
+Authorization: Bearer {{AccessToken}}
