@@ -61,9 +61,9 @@ public static class DependencyInjection
         services.AddSingleton<RedisConnection>();
         services.AddSingleton<TokenBlacklist>();
         services.AddSingleton<JwtTokenIssuer>();
-        services.AddScoped<IIdentityAccounts, IdentityAccountService>();
-        services.AddScoped<IAuthSessions, AuthSessionService>();
-        services.AddScoped<IAuthSessionRepository, AuthSessionRepository>();
+        services.AddScoped<IIdentityAccountService, IdentityAccountService>();
+        services.AddScoped<IAuthSessionService, AuthSessionService>();
+        services.AddScoped<AuthSessionRepository>();
         services.AddScoped<IAuthEmailSender, AuthEmailSender>();
         services.AddHttpClient<SendGridTransport>(x =>
         {

@@ -14,7 +14,7 @@ using Project_AI.Infrastructure.Data.Identity;
 namespace Project_AI.Infrastructure.Services;
 
 public sealed class IdentityAccountService(UserManager<ApplicationUser> users, AuthDbContext db, TimeProvider clock)
-    : IIdentityAccounts
+    : IIdentityAccountService
 {
     private static readonly ApplicationUser DummyUser = new();
     private static readonly PasswordHasher<ApplicationUser> DummyHasher = new();
@@ -143,7 +143,7 @@ public sealed class IdentityAccountService(UserManager<ApplicationUser> users, A
     private static AppException InvalidLogin() => new(ErrorCode.InvalidCredentials,
         "Unable to sign in. Check your credentials and confirm your email, or try again later.");
     private static AppException InvalidLink() => new(ErrorCode.InvalidLink, "The link is invalid or expired.");
-    internal static void Ensure(IdentityResult result, ErrorCode code, bool hideErrors = false)
+    private static void Ensure(IdentityResult result, ErrorCode code, bool hideErrors = false)
     {
         if (!result.Succeeded)
             throw new AppException(code, hideErrors ? "The link or password is invalid."

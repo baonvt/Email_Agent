@@ -2,9 +2,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Project_AI.Application.Common.Enums;
+using Project_AI.Application.Common.Exceptions;
 using Project_AI.Domain.Constants;
 using Project_AI.Infrastructure.Data.Identity;
-using Project_AI.Infrastructure.Services;
 
 namespace Project_AI.Infrastructure.Data;
 
@@ -39,8 +39,12 @@ public static class AuthDatabaseInitializer
             $"SELECT * FROM \"AspNetUsers\" WHERE \"NormalizedEmail\" = {normalized} FOR UPDATE").ToListAsync(ct)).SingleOrDefault()
             ?? throw new InvalidOperationException("Register the account before promoting it.");
         if (!user.EmailConfirmed) throw new InvalidOperationException("Confirm the account's email first.");
-        IdentityAccountService.Ensure(await users.AddToRoleAsync(user, AuthRoles.Admin), ErrorCode.RoleAssignmentFailed);
-        IdentityAccountService.Ensure(await users.UpdateSecurityStampAsync(user), ErrorCode.RoleAssignmentFailed);
+        var roleResult = await users.AddToRoleAsync(user, AuthRoles.Admin);
+        if (!roleResult.Succeeded)
+            throw new AppException(ErrorCode.RoleAssignmentFailed, "Could not assign the Admin role.");
+        var stampResult = await users.UpdateSecurityStampAsync(user);
+        if (!stampResult.Succeeded)
+            throw new AppException(ErrorCode.RoleAssignmentFailed, "Could not update the account security stamp.");
         var now = DateTimeOffset.UtcNow;
         await db.AuthSessions.Where(x => x.UserId == user.Id && x.RevokedAt == null)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.RevokedAt, now), ct);

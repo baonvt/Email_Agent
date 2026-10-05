@@ -2,7 +2,7 @@ using Project_AI.Application.DTOs.Auth;
 
 namespace Project_AI.Application.Interfaces;
 
-public interface IAuthSessions
+public interface IAuthSessionService
 {
     Task<AuthTokens> CreateAsync(AuthAccount account, CancellationToken ct);
     Task<AuthTokens> RefreshAsync(string token, CancellationToken ct);

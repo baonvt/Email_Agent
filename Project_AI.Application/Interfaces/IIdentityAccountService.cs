@@ -2,7 +2,7 @@ using Project_AI.Application.DTOs.Auth;
 
 namespace Project_AI.Application.Interfaces;
 
-public interface IIdentityAccounts
+public interface IIdentityAccountService
 {
     Task<AuthAccount?> RegisterAsync(RegisterRequest request, CancellationToken ct);
     Task<AuthAccount?> FindByEmailAsync(string email, CancellationToken ct);

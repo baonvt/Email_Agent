@@ -5,7 +5,7 @@ using Project_AI.Application.Interfaces;
 
 namespace Project_AI.API.Security;
 
-public sealed class AuthJwtEvents(IAuthSessions sessions, ILogger<AuthJwtEvents> logger) : JwtBearerEvents
+public sealed class AuthJwtEvents(IAuthSessionService sessions, ILogger<AuthJwtEvents> logger) : JwtBearerEvents
 {
     private const string Unavailable = "InboxAgent.AuthUnavailable";
 

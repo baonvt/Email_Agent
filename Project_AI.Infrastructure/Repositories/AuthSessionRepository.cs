@@ -3,16 +3,14 @@ using Microsoft.EntityFrameworkCore;
 using Project_AI.Application.Common.Enums;
 using Project_AI.Application.Common.Exceptions;
 using Project_AI.Application.DTOs.Auth;
-using Project_AI.Application.Interfaces;
 using Project_AI.Domain.Entities;
 using Project_AI.Infrastructure.Data;
 using Project_AI.Infrastructure.Data.Identity;
-using Project_AI.Infrastructure.Services;
+using Project_AI.Infrastructure.Models;
 
 namespace Project_AI.Infrastructure.Repositories;
 
 public sealed class AuthSessionRepository(AuthDbContext db, UserManager<ApplicationUser> users, TimeProvider clock)
-    : IAuthSessionRepository
 {
     public async Task<AuthSessionData> CreateAsync(AuthAccount account, string refreshTokenHash,
         DateTimeOffset expiresAt, CancellationToken ct)
@@ -76,7 +74,12 @@ public sealed class AuthSessionRepository(AuthDbContext db, UserManager<Applicat
         await db.AuthSessions.Where(x => x.UserId == user.Id && x.RevokedAt == null
                 && (allSessions || x.Id == context.SessionId))
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.RevokedAt, now), ct);
-        if (allSessions) IdentityAccountService.Ensure(await users.UpdateSecurityStampAsync(user), ErrorCode.LogoutFailed);
+        if (allSessions)
+        {
+            var result = await users.UpdateSecurityStampAsync(user);
+            if (!result.Succeeded)
+                throw new AppException(ErrorCode.LogoutFailed, "Could not update the account security stamp.");
+        }
         await transaction.CommitAsync(ct);
     }
 

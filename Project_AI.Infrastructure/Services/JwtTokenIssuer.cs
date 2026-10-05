@@ -1,7 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Project_AI.Application.DTOs.Auth;
@@ -34,7 +32,4 @@ public sealed class JwtTokenIssuer(IOptions<JwtOptions> options, TimeProvider cl
             refresh, refreshExpiresAt, account.Profile);
     }
 
-    public static string NewRefreshToken() => Microsoft.AspNetCore.WebUtilities.WebEncoders
-        .Base64UrlEncode(RandomNumberGenerator.GetBytes(64));
-    public static string HashRefreshToken(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 }

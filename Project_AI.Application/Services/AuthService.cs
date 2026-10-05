@@ -5,7 +5,7 @@ using Project_AI.Application.Interfaces;
 
 namespace Project_AI.Application.Services;
 
-public sealed class AuthService(IIdentityAccounts accounts, IAuthSessions sessions, IAuthEmailSender emails) : IAuthService
+public sealed class AuthService(IIdentityAccountService accounts, IAuthSessionService sessions, IAuthEmailSender emails) : IAuthService
 {
     public async Task RegisterAsync(RegisterRequest request, CancellationToken ct)
     {
