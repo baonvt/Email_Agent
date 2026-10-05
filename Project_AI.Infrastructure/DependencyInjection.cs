@@ -123,5 +123,7 @@ public static class DependencyInjection
                 "Gmail:RedirectUri must use HTTPS, or a loopback HTTP URI in Development, with the Gmail callback path.")
             .ValidateOnStart();
         services.AddHttpClient<IGoogleOAuthClient, GoogleOAuthClient>(client => client.Timeout = TimeSpan.FromSeconds(15));
+        services.AddSingleton<MailboxTokenProtector>();
+        services.AddScoped<IMailboxConnectionStore, MailboxConnectionRepository>();
     }
 }
