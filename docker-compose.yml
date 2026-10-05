@@ -47,6 +47,10 @@ services:
       Email__DeliveryEnabled: ${SENDGRID_DELIVERY_ENABLED:-false}
       Email__ApiKey: ${SENDGRID_API_KEY:-}
       Email__FromEmail: ${SENDGRID_FROM_EMAIL:-}
+      Gmail__Enabled: ${GMAIL_ENABLED:-false}
+      Gmail__ClientId: ${GMAIL_CLIENT_ID:-}
+      Gmail__ClientSecret: ${GMAIL_CLIENT_SECRET:-}
+      Gmail__RedirectUri: ${GMAIL_REDIRECT_URI:-http://localhost:8080/api/mailboxes/gmail/callback}
       DataProtection__KeysPath: /home/app/.aspnet/DataProtection-Keys
     depends_on:
       postgres:

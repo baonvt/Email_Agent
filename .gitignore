@@ -26,6 +26,7 @@ _ReSharper*/
 !.env.example
 secrets.json
 secrets.*.json
+client_secret*.json
 appsettings.Local.json
 appsettings.*.Local.json
 *.pfx
