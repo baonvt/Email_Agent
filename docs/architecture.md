@@ -19,12 +19,12 @@ Application định nghĩa use case và interface cần gọi. Infrastructure tr
 
 | Tầng | Folder | Trách nhiệm |
 |---|---|---|
-| Domain | `Entities`, `Constants` | AuthSession, RefreshToken, tên role |
+| Domain | `Entities`, `Constants`, `Enums` | AuthSession, RefreshToken, MailboxConnection, tên role và trạng thái mailbox |
 | Application | `Interfaces` | IAuthService, IIdentityAccountService, IAuthSessionService, IAuthEmailSender |
-| Application | `DTOs/Auth`, `Services` | Input/output và AuthService điều phối use case |
+| Application | `DTOs/Auth`, `DTOs/Mailboxes`, `Services` | Input/output, AuthService và MailboxConnectionService điều phối use case |
 | Application | `Common/Enums`, `Common/Exceptions` | ErrorCode, AppException |
 | Infrastructure | `Data` | AuthDbContext, initializer, Identity/ApplicationUser, Entities/EmailOutboxMessage, Migrations |
-| Infrastructure | `Repositories` | AuthSessionRepository: query và transaction session |
+| Infrastructure | `Repositories` | AuthSessionRepository và MailboxConnectionRepository: query/transaction PostgreSQL |
 | Infrastructure | `Services` | Identity, JWT, session, Redis blacklist, tạo email, SendGrid |
 | Infrastructure | `Models`, `Options` | AuthSessionData, EmailPayload và cấu hình JWT/email |
 | Infrastructure | `BackgroundJobs`, `Health` | Worker gửi outbox, kiểm tra PostgreSQL/Redis |
@@ -75,6 +75,20 @@ Refresh lấy token từ cookie → AuthService → AuthSessionService → AuthS
 Register tạo tài khoản Identity và gán User trước khi queue email. Nếu queue thất bại, tài khoản vẫn tồn tại; resend-confirmation cho phép gửi lại. AuthEmailSender mã hóa payload vào bảng outbox. EmailOutboxWorker đọc từng row với `FOR UPDATE SKIP LOCKED`, gọi SendGrid, ghi kết quả/retry. Outbox nằm hoàn toàn trong Infrastructure, không thêm broker hoặc framework job.
 
 AppException mang ErrorCode từ Application. API ánh xạ mã thành HTTP status và ProblemDetails; phần ứng dụng không cần biết số 404 hay 503. Dùng enum HTTP có sẵn thay vì định nghĩa lại toàn bộ mã trạng thái.
+
+## Luồng kết nối Gmail
+
+```text
+MailboxesController                           [API: HTTP, cookie]
+  → IMailboxConnectionService / MailboxConnectionService [Application]
+    → IGoogleOAuthClient / GoogleOAuthClient   [Infrastructure: HTTP Google]
+    → IMailboxOAuthRequestStore / MailboxOAuthRequestStore [Redis + Data Protection]
+    → IMailboxConnectionStore / MailboxConnectionRepository [PostgreSQL]
+```
+
+Application tạo state/PKCE và điều phối use case qua interface. API gắn cookie HttpOnly với browser; callback dùng state một lần và kiểm tra lại phiên InboxAgent đã bắt đầu kết nối. Redis lưu request OAuth mã hóa với TTL. Repository khóa user rồi mailbox, kiểm tra owner/version trước khi lưu; logout và disconnect khiến callback cũ bị từ chối.
+
+Domain `MailboxConnection` giữ trạng thái và method `Connect`, `Disconnect`, `RequireReconnect`. `MailboxCredential` nằm trong Infrastructure/Data/Entities vì payload mã hóa là chi tiết lưu trữ. MailboxTokenProtector và MailboxAccessTokenService là class nội bộ Infrastructure; service refresh không có endpoint trả token Google. API chỉ trả DTO metadata. Xem [hướng dẫn Gmail OAuth](gmail-oauth.md).
 
 ## Docker
 

@@ -44,4 +44,4 @@ Docker được build và chạy, readiness trả 200; restart cả ba container
 
 Giữ password hashing của Identity, xác nhận email, lockout/rate limit, JWT validation, refresh token hash/rotation, session revocation, Redis TTL, Origin/CSRF và role do server cấp.
 
-Gửi SendGrid đến hộp thư thật chưa được xác minh. Frontend xác nhận/reset, Gmail/Outlook OAuth, đồng bộ inbox, lịch và agent là các phần chưa triển khai; README không mô tả chúng là đã hoàn thành.
+Gửi SendGrid đến hộp thư thật chưa được xác minh. Sau các commit refactor, giai đoạn 1 đã bổ sung [Gmail OAuth](gmail-oauth.md), kiểm tra bằng HTTP transport giả lập; kết nối Gmail thật chờ cấu hình Google Client. Frontend xác nhận/reset, Outlook, đồng bộ inbox, lịch và agent là các phần chưa triển khai.

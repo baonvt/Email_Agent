@@ -83,3 +83,19 @@ Authorization: Bearer {{AccessToken}}
 ### Cần login lại sau khi được cấp role Admin.
 GET {{Project_AI_HostAddress}}/api/admin/status
 Authorization: Bearer {{AccessToken}}
+
+### Mailboxes của người đang đăng nhập; không trả Google token.
+GET {{Project_AI_HostAddress}}/api/mailboxes
+Authorization: Bearer {{AccessToken}}
+
+### Tham khảo docs/gmail-oauth.md để bắt đầu OAuth từ browser giữ được cookie callback.
+POST {{Project_AI_HostAddress}}/api/mailboxes/gmail/connect
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Authorization: Bearer {{AccessToken}}
+
+### Xóa credentials Gmail lưu local và vô hiệu callback đang chờ.
+POST {{Project_AI_HostAddress}}/api/mailboxes/gmail/disconnect
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Authorization: Bearer {{AccessToken}}
