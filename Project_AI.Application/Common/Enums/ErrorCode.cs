@@ -29,5 +29,11 @@ public enum ErrorCode
     InvalidSession,
     AuthUnavailable,
     LogoutFailed,
-    RoleAssignmentFailed
+    RoleAssignmentFailed,
+    MailboxNotConfigured,
+    MailboxUnavailable,
+    OAuthRejected,
+    OAuthDenied,
+    InvalidOAuthState,
+    MailboxReconnectRequired
 }

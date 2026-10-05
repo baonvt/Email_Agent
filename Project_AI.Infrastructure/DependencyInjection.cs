@@ -27,6 +27,7 @@ public static class DependencyInjection
         AddIdentity(services);
         AddAuthServices(services);
         AddEmail(services);
+        AddMailboxes(services, configuration, environment);
         services.AddHealthChecks().AddCheck<DependenciesHealthCheck>("auth_dependencies");
         return services;
     }
@@ -111,5 +112,16 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(15);
         });
         services.AddHostedService<EmailOutboxWorker>();
+    }
+
+    private static void AddMailboxes(IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
+    {
+        services.AddOptions<GmailOptions>().Bind(configuration.GetSection(GmailOptions.Section))
+            .Validate(options => !options.Enabled || (!string.IsNullOrWhiteSpace(options.ClientId)
+                && !string.IsNullOrWhiteSpace(options.ClientSecret)), "Configure Gmail:ClientId and Gmail:ClientSecret.")
+            .Validate(options => !options.Enabled || options.HasValidRedirectUri(environment.IsDevelopment()),
+                "Gmail:RedirectUri must use HTTPS, or a loopback HTTP URI in Development, with the Gmail callback path.")
+            .ValidateOnStart();
+        services.AddHttpClient<IGoogleOAuthClient, GoogleOAuthClient>(client => client.Timeout = TimeSpan.FromSeconds(15));
     }
 }

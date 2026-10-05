@@ -11,17 +11,19 @@ public static class ResponseCodes
     public static HttpStatusCode StatusFor(ErrorCode code) => code switch
     {
         ErrorCode.InvalidInput or ErrorCode.ValidationFailed or ErrorCode.InvalidRegistration
-            or ErrorCode.InvalidPassword or ErrorCode.InvalidLink or ErrorCode.InvalidReset => HttpStatusCode.BadRequest,
+            or ErrorCode.InvalidPassword or ErrorCode.InvalidLink or ErrorCode.InvalidReset
+            or ErrorCode.OAuthRejected or ErrorCode.OAuthDenied or ErrorCode.InvalidOAuthState => HttpStatusCode.BadRequest,
         ErrorCode.Unauthorized or ErrorCode.InvalidCredentials or ErrorCode.InvalidSession => HttpStatusCode.Unauthorized,
         ErrorCode.Forbidden or ErrorCode.CsrfRejected => HttpStatusCode.Forbidden,
         ErrorCode.NotFound => HttpStatusCode.NotFound,
-        ErrorCode.Conflict => HttpStatusCode.Conflict,
+        ErrorCode.Conflict or ErrorCode.MailboxReconnectRequired => HttpStatusCode.Conflict,
         ErrorCode.MethodNotAllowed => HttpStatusCode.MethodNotAllowed,
         ErrorCode.RequestTimeout => HttpStatusCode.RequestTimeout,
         ErrorCode.PayloadTooLarge => HttpStatusCode.RequestEntityTooLarge,
         ErrorCode.UnsupportedMediaType => HttpStatusCode.UnsupportedMediaType,
         ErrorCode.TooManyRequests => HttpStatusCode.TooManyRequests,
-        ErrorCode.ServiceUnavailable or ErrorCode.AuthUnavailable => HttpStatusCode.ServiceUnavailable,
+        ErrorCode.ServiceUnavailable or ErrorCode.AuthUnavailable or ErrorCode.MailboxNotConfigured
+            or ErrorCode.MailboxUnavailable => HttpStatusCode.ServiceUnavailable,
         _ => HttpStatusCode.InternalServerError
     };
 
@@ -81,6 +83,12 @@ public static class ResponseCodes
         ErrorCode.AuthUnavailable => "Authentication is temporarily unavailable. Please try again later.",
         ErrorCode.LogoutFailed => "Sign-out could not be completed. Please try again.",
         ErrorCode.RoleAssignmentFailed => "The role could not be assigned.",
+        ErrorCode.MailboxNotConfigured => "Configure Gmail OAuth before connecting a mailbox.",
+        ErrorCode.MailboxUnavailable => "The mailbox provider is temporarily unavailable.",
+        ErrorCode.OAuthRejected => "Google authorization was rejected. Start the connection again.",
+        ErrorCode.OAuthDenied => "The required mailbox permission was not granted.",
+        ErrorCode.InvalidOAuthState => "The authorization request is invalid or expired. Start again in the same browser.",
+        ErrorCode.MailboxReconnectRequired => "Reconnect the mailbox to restore Google authorization.",
         _ => "An unexpected error occurred."
     };
 }
