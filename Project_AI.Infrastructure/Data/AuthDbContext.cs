@@ -16,6 +16,8 @@ public sealed class AuthDbContext : IdentityDbContext<ApplicationUser, IdentityR
     public DbSet<AuthSession> AuthSessions => Set<AuthSession>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<EmailOutboxMessage> EmailOutbox => Set<EmailOutboxMessage>();
+    public DbSet<MailboxConnection> MailboxConnections => Set<MailboxConnection>();
+    public DbSet<MailboxCredential> MailboxCredentials => Set<MailboxCredential>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -40,6 +42,23 @@ public sealed class AuthDbContext : IdentityDbContext<ApplicationUser, IdentityR
         {
             b.HasKey(x => x.Id);
             b.HasIndex(x => new { x.SentAt, x.NextAttemptAt });
+        });
+        builder.Entity<MailboxConnection>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Provider).HasConversion<string>().HasMaxLength(20);
+            b.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
+            b.Property(x => x.ProviderAccountId).HasMaxLength(255);
+            b.Property(x => x.Email).HasMaxLength(320);
+            b.Property(x => x.Version).IsConcurrencyToken();
+            b.HasIndex(x => new { x.UserId, x.Provider }).IsUnique();
+            b.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+        builder.Entity<MailboxCredential>(b =>
+        {
+            b.HasKey(x => x.MailboxConnectionId);
+            b.HasOne<MailboxConnection>().WithOne().HasForeignKey<MailboxCredential>(x => x.MailboxConnectionId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
