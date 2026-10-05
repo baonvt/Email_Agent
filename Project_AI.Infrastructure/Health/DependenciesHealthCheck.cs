@@ -4,17 +4,35 @@ using Project_AI.Infrastructure.Services;
 
 namespace Project_AI.Infrastructure.Health;
 
-public sealed class DependenciesHealthCheck(AuthDbContext db, RedisConnection connection) : IHealthCheck
+public sealed class DependenciesHealthCheck : IHealthCheck
 {
-    public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken ct = default)
+    private readonly AuthDbContext _dbContext;
+    private readonly RedisConnection _redisConnection;
+
+    public DependenciesHealthCheck(AuthDbContext dbContext, RedisConnection redisConnection)
+    {
+        _dbContext = dbContext;
+        _redisConnection = redisConnection;
+    }
+
+    public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
         try
         {
-            if (!await db.Database.CanConnectAsync(ct)) return HealthCheckResult.Unhealthy();
-            await (await connection.GetAsync()).GetDatabase().PingAsync().WaitAsync(ct);
+            if (!await _dbContext.Database.CanConnectAsync(cancellationToken))
+            {
+                return HealthCheckResult.Unhealthy();
+            }
+            await (await _redisConnection.GetAsync()).GetDatabase().PingAsync().WaitAsync(cancellationToken);
             return HealthCheckResult.Healthy();
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch { return HealthCheckResult.Unhealthy(); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return HealthCheckResult.Unhealthy();
+        }
     }
 }

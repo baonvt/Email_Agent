@@ -13,7 +13,13 @@ public sealed class JwtOptions
 
     public bool HasValidSigningKey()
     {
-        try { return Convert.FromBase64String(SigningKey).Length >= 32; }
-        catch (FormatException) { return false; }
+        try
+        {
+            return Convert.FromBase64String(SigningKey).Length >= 32;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 }

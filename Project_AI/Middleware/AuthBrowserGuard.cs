@@ -5,27 +5,38 @@ using Project_AI.Application.Common.Enums;
 
 namespace Project_AI.API.Middleware;
 
-public sealed class AuthBrowserGuard(RequestDelegate next)
+public sealed class AuthBrowserGuard
 {
+    private readonly RequestDelegate _next;
+
+    public AuthBrowserGuard(RequestDelegate next)
+    {
+        _next = next;
+    }
+
     public async Task InvokeAsync(HttpContext context, IOptions<AuthWebOptions> options)
     {
-        if (context.GetEndpoint() is not null && context.Request.Path.StartsWithSegments("/api/auth"))
+        if (context.GetEndpoint() is null || !context.Request.Path.StartsWithSegments("/api/auth"))
         {
-            context.Response.Headers.CacheControl = "no-store";
-            context.Response.Headers.Pragma = "no-cache";
-            if (HttpMethods.IsPost(context.Request.Method))
+            await _next(context);
+            return;
+        }
+
+        context.Response.Headers.CacheControl = "no-store";
+        context.Response.Headers.Pragma = "no-cache";
+        if (HttpMethods.IsPost(context.Request.Method))
+        {
+            var origin = context.Request.Headers.Origin.ToString();
+            // Exact origin matching and a custom header force a CORS preflight in browsers.
+            var isAllowedOrigin = options.Value.AllowedOrigins.Contains(origin, StringComparer.Ordinal);
+            var hasCsrfHeader = context.Request.Headers["X-InboxAgent-CSRF"] == "1";
+            if (!isAllowedOrigin || !hasCsrfHeader)
             {
-                var origin = context.Request.Headers.Origin.ToString();
-                // Exact allowlist + a mandatory custom header forces a CORS preflight for cross-origin
-                // requests. Browsers cannot forge Origin, and HTML forms cannot set this header.
-                if (!options.Value.AllowedOrigins.Contains(origin, StringComparer.Ordinal)
-                    || context.Request.Headers["X-InboxAgent-CSRF"] != "1")
-                {
-                    await ErrorResponse.WriteAsync(context, ErrorCode.CsrfRejected);
-                    return;
-                }
+                await ErrorResponse.WriteAsync(context, ErrorCode.CsrfRejected);
+                return;
             }
         }
-        await next(context);
+
+        await _next(context);
     }
 }

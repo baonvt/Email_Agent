@@ -18,11 +18,17 @@ await AuthDatabaseInitializer.InitializeAsync(app.Services,
     migrateOnly || app.Configuration.GetValue<bool>("Database:MigrateOnStartup"));
 if (promoteIndex >= 0)
 {
-    if (promoteIndex + 1 >= args.Length) throw new ArgumentException("Provide --promote-admin email.");
+    if (promoteIndex + 1 >= args.Length)
+    {
+        throw new ArgumentException("Provide --promote-admin email.");
+    }
     await AuthDatabaseInitializer.PromoteAdminAsync(app.Services, args[promoteIndex + 1]);
     return;
 }
-if (migrateOnly) return;
+if (migrateOnly)
+{
+    return;
+}
 
 app.UseExceptionHandler();
 app.UseStatusCodePages(context => ErrorResponse.WriteStatusAsync(context.HttpContext));

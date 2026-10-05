@@ -14,55 +14,64 @@ namespace Project_AI.API.Controllers;
 [ApiController]
 [Route("api/auth")]
 [EnableRateLimiting("auth")]
-public sealed class AuthController(IAuthService auth, IOptions<AuthWebOptions> options) : ControllerBase
+public sealed class AuthController : ControllerBase
 {
-    [HttpPost("register"), AllowAnonymous]
-    public async Task<IActionResult> Register(RegisterRequest request, CancellationToken ct)
+    private readonly IAuthService _authService;
+    private readonly IOptions<AuthWebOptions> _authWebOptions;
+
+    public AuthController(IAuthService authService, IOptions<AuthWebOptions> authWebOptions)
     {
-        await auth.RegisterAsync(request, ct);
+        _authService = authService;
+        _authWebOptions = authWebOptions;
+    }
+
+    [HttpPost("register"), AllowAnonymous]
+    public async Task<IActionResult> Register(RegisterRequest request, CancellationToken cancellationToken)
+    {
+        await _authService.RegisterAsync(request, cancellationToken);
         return Accepted(new { message = "If registration is eligible, a confirmation email will be sent. Check your inbox." });
     }
 
     [HttpPost("confirm-email"), AllowAnonymous]
-    public async Task<IActionResult> ConfirmEmail(ConfirmEmailRequest request, CancellationToken ct)
+    public async Task<IActionResult> ConfirmEmail(ConfirmEmailRequest request, CancellationToken cancellationToken)
     {
-        await auth.ConfirmEmailAsync(request, ct);
+        await _authService.ConfirmEmailAsync(request, cancellationToken);
         return NoContent();
     }
 
     [HttpPost("resend-confirmation"), AllowAnonymous]
-    public async Task<IActionResult> ResendConfirmation(EmailRequest request, CancellationToken ct)
+    public async Task<IActionResult> ResendConfirmation(EmailRequest request, CancellationToken cancellationToken)
     {
-        await auth.ResendConfirmationAsync(request, ct);
+        await _authService.ResendConfirmationAsync(request, cancellationToken);
         return EmailAccepted();
     }
 
     [HttpPost("forgot-password"), AllowAnonymous]
-    public async Task<IActionResult> ForgotPassword(EmailRequest request, CancellationToken ct)
+    public async Task<IActionResult> ForgotPassword(EmailRequest request, CancellationToken cancellationToken)
     {
-        await auth.ForgotPasswordAsync(request, ct);
+        await _authService.ForgotPasswordAsync(request, cancellationToken);
         return EmailAccepted();
     }
 
     [HttpPost("reset-password"), AllowAnonymous]
-    public async Task<IActionResult> ResetPassword(ResetPasswordRequest request, CancellationToken ct)
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequest request, CancellationToken cancellationToken)
     {
-        await auth.ResetPasswordAsync(request, ct);
+        await _authService.ResetPasswordAsync(request, cancellationToken);
         DeleteRefreshCookie();
         return NoContent();
     }
 
     [HttpPost("login"), AllowAnonymous]
-    public async Task<ActionResult<TokenResponse>> Login(LoginRequest request, CancellationToken ct) =>
-        WriteTokens(await auth.LoginAsync(request, ct));
+    public async Task<ActionResult<TokenResponse>> Login(LoginRequest request, CancellationToken cancellationToken) =>
+        WriteTokens(await _authService.LoginAsync(request, cancellationToken));
 
     [HttpPost("refresh"), AllowAnonymous]
-    public async Task<ActionResult<TokenResponse>> Refresh(CancellationToken ct)
+    public async Task<ActionResult<TokenResponse>> Refresh(CancellationToken cancellationToken)
     {
-        var token = Request.Cookies[options.Value.CookieName];
+        var token = Request.Cookies[_authWebOptions.Value.CookieName];
         try
         {
-            return WriteTokens(await auth.RefreshAsync(token ?? "", ct));
+            return WriteTokens(await _authService.RefreshAsync(token ?? "", cancellationToken));
         }
         catch (AppException ex) when (ex.Code == ErrorCode.InvalidSession)
         {
@@ -72,17 +81,20 @@ public sealed class AuthController(IAuthService auth, IOptions<AuthWebOptions> o
     }
 
     [HttpPost("logout"), Authorize]
-    public Task<IActionResult> Logout(CancellationToken ct) => LogoutCore(false, ct);
+    public Task<IActionResult> Logout(CancellationToken cancellationToken) => LogoutCore(false, cancellationToken);
 
     [HttpPost("logout-all"), Authorize]
-    public Task<IActionResult> LogoutAll(CancellationToken ct) => LogoutCore(true, ct);
+    public Task<IActionResult> LogoutAll(CancellationToken cancellationToken) => LogoutCore(true, cancellationToken);
 
     [HttpGet("me"), Authorize]
-    public Task<UserProfile> Me(CancellationToken ct) => auth.GetProfileAsync(CurrentToken().UserId, ct);
+    public Task<UserProfile> Me(CancellationToken cancellationToken) => _authService.GetProfileAsync(CurrentToken().UserId, cancellationToken);
 
-    private async Task<IActionResult> LogoutCore(bool all, CancellationToken ct)
+    private async Task<IActionResult> LogoutCore(bool all, CancellationToken cancellationToken)
     {
-        try { await auth.LogoutAsync(CurrentToken(), all, ct); }
+        try
+        {
+            await _authService.LogoutAsync(CurrentToken(), all, cancellationToken);
+        }
         finally { DeleteRefreshCookie(); }
         return NoContent();
     }
@@ -91,16 +103,16 @@ public sealed class AuthController(IAuthService auth, IOptions<AuthWebOptions> o
     {
         var cookie = CookieSettings();
         cookie.Expires = tokens.RefreshTokenExpiresAt;
-        Response.Cookies.Append(options.Value.CookieName, tokens.RefreshToken, cookie);
+        Response.Cookies.Append(_authWebOptions.Value.CookieName, tokens.RefreshToken, cookie);
         return new TokenResponse(tokens.AccessToken, tokens.AccessTokenExpiresAt, tokens.User);
     }
 
-    private void DeleteRefreshCookie() => Response.Cookies.Delete(options.Value.CookieName, CookieSettings());
+    private void DeleteRefreshCookie() => Response.Cookies.Delete(_authWebOptions.Value.CookieName, CookieSettings());
     private CookieOptions CookieSettings() => new()
     {
         HttpOnly = true,
-        Secure = !options.Value.AllowInsecureCookiesForDevelopment || Request.IsHttps,
-        SameSite = Enum.Parse<SameSiteMode>(options.Value.SameSite),
+        Secure = !_authWebOptions.Value.AllowInsecureCookiesForDevelopment || Request.IsHttps,
+        SameSite = Enum.Parse<SameSiteMode>(_authWebOptions.Value.SameSite),
         Path = "/", IsEssential = true
     };
     private AccessTokenContext CurrentToken() => AccessTokenClaims.Read(User)

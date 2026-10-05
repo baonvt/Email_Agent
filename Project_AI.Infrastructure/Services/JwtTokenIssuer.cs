@@ -7,12 +7,21 @@ using Project_AI.Infrastructure.Options;
 
 namespace Project_AI.Infrastructure.Services;
 
-public sealed class JwtTokenIssuer(IOptions<JwtOptions> options, TimeProvider clock)
+public sealed class JwtTokenIssuer
 {
+    private readonly IOptions<JwtOptions> _jwtOptions;
+    private readonly TimeProvider _timeProvider;
+
+    public JwtTokenIssuer(IOptions<JwtOptions> jwtOptions, TimeProvider timeProvider)
+    {
+        _jwtOptions = jwtOptions;
+        _timeProvider = timeProvider;
+    }
+
     public AuthTokens Issue(AuthAccount account, Guid sessionId, string refresh, DateTimeOffset refreshExpiresAt)
     {
-        var config = options.Value;
-        var now = clock.GetUtcNow();
+        var config = _jwtOptions.Value;
+        var now = _timeProvider.GetUtcNow();
         var expiresAt = now.AddMinutes(config.AccessTokenMinutes);
         if (expiresAt > refreshExpiresAt) expiresAt = refreshExpiresAt;
         var claims = new List<Claim>

@@ -7,9 +7,12 @@ using Project_AI.Infrastructure.Data.Identity;
 
 namespace Project_AI.Infrastructure.Data;
 
-public sealed class AuthDbContext(DbContextOptions<AuthDbContext> options)
-    : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
+public sealed class AuthDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
 {
+    public AuthDbContext(DbContextOptions<AuthDbContext> options) : base(options)
+    {
+    }
+
     public DbSet<AuthSession> AuthSessions => Set<AuthSession>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<EmailOutboxMessage> EmailOutbox => Set<EmailOutboxMessage>();

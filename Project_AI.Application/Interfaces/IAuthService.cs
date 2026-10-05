@@ -4,13 +4,13 @@ namespace Project_AI.Application.Interfaces;
 
 public interface IAuthService
 {
-    Task RegisterAsync(RegisterRequest request, CancellationToken ct);
-    Task<AuthTokens> LoginAsync(LoginRequest request, CancellationToken ct);
-    Task<AuthTokens> RefreshAsync(string token, CancellationToken ct);
-    Task ConfirmEmailAsync(ConfirmEmailRequest request, CancellationToken ct);
-    Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct);
-    Task LogoutAsync(AccessTokenContext context, bool allSessions, CancellationToken ct);
-    Task ResendConfirmationAsync(EmailRequest request, CancellationToken ct);
-    Task ForgotPasswordAsync(EmailRequest request, CancellationToken ct);
-    Task<UserProfile> GetProfileAsync(Guid id, CancellationToken ct);
+    Task RegisterAsync(RegisterRequest request, CancellationToken cancellationToken);
+    Task<AuthTokens> LoginAsync(LoginRequest request, CancellationToken cancellationToken);
+    Task<AuthTokens> RefreshAsync(string token, CancellationToken cancellationToken);
+    Task ConfirmEmailAsync(ConfirmEmailRequest request, CancellationToken cancellationToken);
+    Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken);
+    Task LogoutAsync(AccessTokenContext context, bool allSessions, CancellationToken cancellationToken);
+    Task ResendConfirmationAsync(EmailRequest request, CancellationToken cancellationToken);
+    Task ForgotPasswordAsync(EmailRequest request, CancellationToken cancellationToken);
+    Task<UserProfile> GetProfileAsync(Guid id, CancellationToken cancellationToken);
 }

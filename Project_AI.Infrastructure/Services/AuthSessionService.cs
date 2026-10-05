@@ -11,38 +11,59 @@ using Project_AI.Infrastructure.Repositories;
 
 namespace Project_AI.Infrastructure.Services;
 
-public sealed class AuthSessionService(AuthSessionRepository repository, JwtTokenIssuer issuer,
-    TokenBlacklist blacklist, IOptions<JwtOptions> options, TimeProvider clock) : IAuthSessionService
+public sealed class AuthSessionService : IAuthSessionService
 {
-    public async Task<AuthTokens> CreateAsync(AuthAccount account, CancellationToken ct)
+    private readonly AuthSessionRepository _sessionRepository;
+    private readonly JwtTokenIssuer _tokenIssuer;
+    private readonly TokenBlacklist _tokenBlacklist;
+    private readonly IOptions<JwtOptions> _jwtOptions;
+    private readonly TimeProvider _timeProvider;
+
+    public AuthSessionService(
+        AuthSessionRepository sessionRepository,
+        JwtTokenIssuer tokenIssuer,
+        TokenBlacklist tokenBlacklist,
+        IOptions<JwtOptions> jwtOptions,
+        TimeProvider timeProvider)
     {
-        await blacklist.ContainsAsync("availability-check");
-        var refresh = NewRefreshToken();
-        var data = await repository.CreateAsync(account, HashRefreshToken(refresh),
-            clock.GetUtcNow().AddDays(options.Value.RefreshTokenDays), ct);
-        return issuer.Issue(data.Account, data.SessionId, refresh, data.ExpiresAt);
+        _sessionRepository = sessionRepository;
+        _tokenIssuer = tokenIssuer;
+        _tokenBlacklist = tokenBlacklist;
+        _jwtOptions = jwtOptions;
+        _timeProvider = timeProvider;
     }
 
-    public async Task<AuthTokens> RefreshAsync(string token, CancellationToken ct)
+    public async Task<AuthTokens> CreateAsync(AuthAccount account, CancellationToken cancellationToken)
+    {
+        await _tokenBlacklist.ContainsAsync("availability-check");
+        var refresh = NewRefreshToken();
+        var data = await _sessionRepository.CreateAsync(account, HashRefreshToken(refresh),
+            _timeProvider.GetUtcNow().AddDays(_jwtOptions.Value.RefreshTokenDays), cancellationToken);
+        return _tokenIssuer.Issue(data.Account, data.SessionId, refresh, data.ExpiresAt);
+    }
+
+    public async Task<AuthTokens> RefreshAsync(string token, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(token) || token.Length > 256)
+        {
             throw new AppException(ErrorCode.InvalidSession, "Please sign in again.");
-        await blacklist.ContainsAsync("availability-check");
+        }
+        await _tokenBlacklist.ContainsAsync("availability-check");
         var refresh = NewRefreshToken();
-        var data = await repository.RotateAsync(HashRefreshToken(token), HashRefreshToken(refresh), ct);
-        return issuer.Issue(data.Account, data.SessionId, refresh, data.ExpiresAt);
+        var data = await _sessionRepository.RotateAsync(HashRefreshToken(token), HashRefreshToken(refresh), cancellationToken);
+        return _tokenIssuer.Issue(data.Account, data.SessionId, refresh, data.ExpiresAt);
     }
 
-    public async Task RevokeAsync(AccessTokenContext context, bool allSessions, CancellationToken ct)
+    public async Task RevokeAsync(AccessTokenContext context, bool allSessions, CancellationToken cancellationToken)
     {
         // Keep database revocation committed even if writing the Redis blacklist subsequently fails.
-        await repository.RevokeAsync(context, allSessions, ct);
-        await blacklist.AddAsync(context.Jti, context.ExpiresAt);
+        await _sessionRepository.RevokeAsync(context, allSessions, cancellationToken);
+        await _tokenBlacklist.AddAsync(context.Jti, context.ExpiresAt);
     }
 
-    public async Task<bool> ValidateAsync(AccessTokenContext context, CancellationToken ct) =>
-        context.ExpiresAt > clock.GetUtcNow() && !await blacklist.ContainsAsync(context.Jti)
-        && await repository.IsActiveAsync(context, ct);
+    public async Task<bool> ValidateAsync(AccessTokenContext context, CancellationToken cancellationToken) =>
+        context.ExpiresAt > _timeProvider.GetUtcNow() && !await _tokenBlacklist.ContainsAsync(context.Jti)
+        && await _sessionRepository.IsActiveAsync(context, cancellationToken);
 
     private static string NewRefreshToken() => WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(64));
     private static string HashRefreshToken(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));

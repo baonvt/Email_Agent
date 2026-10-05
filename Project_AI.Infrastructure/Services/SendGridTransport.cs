@@ -7,11 +7,20 @@ using Project_AI.Infrastructure.Options;
 
 namespace Project_AI.Infrastructure.Services;
 
-public sealed class SendGridTransport(HttpClient http, IOptions<EmailOptions> options)
+public sealed class SendGridTransport
 {
-    public async Task SendAsync(EmailPayload message, CancellationToken ct)
+    private readonly HttpClient _httpClient;
+    private readonly IOptions<EmailOptions> _emailOptions;
+
+    public SendGridTransport(HttpClient httpClient, IOptions<EmailOptions> emailOptions)
     {
-        var settings = options.Value;
+        _httpClient = httpClient;
+        _emailOptions = emailOptions;
+    }
+
+    public async Task SendAsync(EmailPayload message, CancellationToken cancellationToken)
+    {
+        var settings = _emailOptions.Value;
         using var request = new HttpRequestMessage(HttpMethod.Post, "v3/mail/send");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.ApiKey);
         request.Content = JsonContent.Create(new
@@ -30,9 +39,11 @@ public sealed class SendGridTransport(HttpClient http, IOptions<EmailOptions> op
                 open_tracking = new { enable = false }
             }
         });
-        using var response = await http.SendAsync(request, ct);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
         // Never log provider bodies, API keys, recipients or confirmation/reset URLs.
         if (response.StatusCode != HttpStatusCode.Accepted)
+        {
             throw new HttpRequestException("SendGrid did not accept the email.", null, response.StatusCode);
+        }
     }
 }

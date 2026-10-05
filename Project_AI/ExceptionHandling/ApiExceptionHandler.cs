@@ -6,23 +6,42 @@ using Project_AI.Application.Common.Exceptions;
 
 namespace Project_AI.API.ExceptionHandling;
 
-public sealed class ApiExceptionHandler(ILogger<ApiExceptionHandler> logger) : IExceptionHandler
+public sealed class ApiExceptionHandler : IExceptionHandler
 {
-    public async ValueTask<bool> TryHandleAsync(HttpContext context, Exception exception, CancellationToken ct)
+    private readonly ILogger<ApiExceptionHandler> _logger;
+
+    public ApiExceptionHandler(ILogger<ApiExceptionHandler> logger)
     {
-        if (context.RequestAborted.IsCancellationRequested) return true;
+        _logger = logger;
+    }
+
+    public async ValueTask<bool> TryHandleAsync(HttpContext context, Exception exception, CancellationToken cancellationToken)
+    {
+        if (context.RequestAborted.IsCancellationRequested)
+        {
+            return true;
+        }
+
         var error = exception as AppException;
         var code = error?.Code ?? ErrorCode.InternalError;
-        var status = error is not null ? ResponseCodes.StatusFor(code)
-            : exception is BadHttpRequestException badRequest
-                ? (HttpStatusCode)badRequest.StatusCode : HttpStatusCode.InternalServerError;
-        if (exception is BadHttpRequestException) code = ResponseCodes.ErrorFor(status);
-        if ((int)status >= 500)
-            logger.LogError("Request failed with {ErrorCode} ({ErrorType}), trace {TraceId}. Stack: {StackTrace}",
-                code, exception.GetType().Name, context.TraceIdentifier, exception.StackTrace);
-        await ErrorResponse.WriteAsync(context, ErrorResponse.Create(context, code,
-            detail: (int)status < 500 ? error?.Message : null,
-            errors: (int)status < 500 ? error?.Errors : null, status: status));
+        var status = ResponseCodes.StatusFor(code);
+        if (exception is BadHttpRequestException badRequest)
+        {
+            status = (HttpStatusCode)badRequest.StatusCode;
+            code = ResponseCodes.ErrorFor(status);
+        }
+
+        var isServerError = (int)status >= 500;
+        var problem = ErrorResponse.Create(context, code,
+            detail: isServerError ? null : error?.Message,
+            errors: isServerError ? null : error?.Errors, status: status);
+        if (isServerError)
+        {
+            _logger.LogError("Request failed with {ErrorCode} ({ErrorType}), trace {TraceId}. Stack: {StackTrace}",
+                code, exception.GetType().Name, problem.Extensions["traceId"], exception.StackTrace);
+        }
+
+        await ErrorResponse.WriteAsync(context, problem);
         return true;
     }
 }

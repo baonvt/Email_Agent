@@ -5,8 +5,17 @@ using Project_AI.Application.Interfaces;
 
 namespace Project_AI.API.Security;
 
-public sealed class AuthJwtEvents(IAuthSessionService sessions, ILogger<AuthJwtEvents> logger) : JwtBearerEvents
+public sealed class AuthJwtEvents : JwtBearerEvents
 {
+    private readonly IAuthSessionService _authSessionService;
+    private readonly ILogger<AuthJwtEvents> _logger;
+
+    public AuthJwtEvents(IAuthSessionService authSessionService, ILogger<AuthJwtEvents> logger)
+    {
+        _authSessionService = authSessionService;
+        _logger = logger;
+    }
+
     private const string Unavailable = "InboxAgent.AuthUnavailable";
 
     public override async Task TokenValidated(TokenValidatedContext context)
@@ -15,15 +24,18 @@ public sealed class AuthJwtEvents(IAuthSessionService sessions, ILogger<AuthJwtE
         if (token is null) { context.Fail("Missing session claims."); return; }
         try
         {
-            if (!await sessions.ValidateAsync(token, context.HttpContext.RequestAborted))
+            if (!await _authSessionService.ValidateAsync(token, context.HttpContext.RequestAborted))
                 context.Fail("The session is revoked or expired.");
         }
-        catch (OperationCanceledException) when (context.HttpContext.RequestAborted.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException) when (context.HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             // Fail closed for both Redis and PostgreSQL outages. Never log token contents.
             context.HttpContext.Items[Unavailable] = true;
-            logger.LogWarning("Session validation unavailable ({ErrorType}).", ex.GetType().Name);
+            _logger.LogWarning("Session validation unavailable ({ErrorType}).", ex.GetType().Name);
             context.Fail("Session validation is unavailable.");
         }
     }

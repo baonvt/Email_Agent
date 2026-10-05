@@ -19,59 +19,97 @@ namespace Project_AI.Infrastructure;
 public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services,
-        IConfiguration config, IHostEnvironment environment)
+        IConfiguration configuration, IHostEnvironment environment)
     {
         services.AddSingleton(TimeProvider.System);
-        services.AddOptions<JwtOptions>().Bind(config.GetSection(JwtOptions.Section)).ValidateDataAnnotations()
-            .Validate(x => x.HasValidSigningKey(), "Jwt:SigningKey must be base64 containing at least 32 random bytes.")
-            .ValidateOnStart();
-        services.AddOptions<EmailOptions>().Bind(config.GetSection(EmailOptions.Section)).ValidateDataAnnotations()
-            .Validate(x => !x.DeliveryEnabled || (!string.IsNullOrWhiteSpace(x.ApiKey)
-                && new EmailAddressAttribute().IsValid(x.FromEmail) && !string.IsNullOrWhiteSpace(x.FromEmail)),
-                "Configure Email:ApiKey and a verified Email:FromEmail when email delivery is enabled.")
-            .Validate(x => environment.IsDevelopment() || x.DeliveryEnabled,
-                "Email delivery must be enabled outside Development.")
-            .Validate(x => environment.IsDevelopment() || (Uri.TryCreate(x.FrontendBaseUrl, UriKind.Absolute, out var uri) && uri.Scheme == "https"),
-                "The frontend URL must use HTTPS outside Development.").ValidateOnStart();
+        AddConfigurationOptions(services, configuration, environment);
+        AddData(services, configuration);
+        AddIdentity(services);
+        AddAuthServices(services);
+        AddEmail(services);
+        services.AddHealthChecks().AddCheck<DependenciesHealthCheck>("auth_dependencies");
+        return services;
+    }
 
-        services.AddDbContext<AuthDbContext>(x => x.UseNpgsql(
-            config.GetConnectionString("Postgres") ?? throw new InvalidOperationException("Configure ConnectionStrings:Postgres.")));
-        services.AddIdentityCore<ApplicationUser>(x =>
-        {
-            x.User.RequireUniqueEmail = true;
-            x.Password.RequiredLength = 12;
-            x.Password.RequiredUniqueChars = 4;
-            x.Password.RequireDigit = true;
-            x.Password.RequireLowercase = true;
-            x.Password.RequireUppercase = true;
-            x.Password.RequireNonAlphanumeric = true;
-            x.Lockout.MaxFailedAccessAttempts = 5;
-            x.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-            x.Lockout.AllowedForNewUsers = true;
-            x.SignIn.RequireConfirmedEmail = true;
-        }).AddRoles<IdentityRole<Guid>>().AddEntityFrameworkStores<AuthDbContext>().AddDefaultTokenProviders();
-        // Both email-confirmation and reset links expire in one hour.
-        services.Configure<DataProtectionTokenProviderOptions>(x => x.TokenLifespan = TimeSpan.FromHours(1));
-        services.Configure<PasswordHasherOptions>(x => x.IterationCount = 210_000);
+    private static void AddConfigurationOptions(IServiceCollection services,
+        IConfiguration configuration, IHostEnvironment environment)
+    {
+        services.AddOptions<JwtOptions>().Bind(configuration.GetSection(JwtOptions.Section))
+            .ValidateDataAnnotations()
+            .Validate(options => options.HasValidSigningKey(),
+                "Jwt:SigningKey must be base64 containing at least 32 random bytes.")
+            .ValidateOnStart();
+        services.AddOptions<EmailOptions>().Bind(configuration.GetSection(EmailOptions.Section))
+            .ValidateDataAnnotations()
+            .Validate(options => !options.DeliveryEnabled || (!string.IsNullOrWhiteSpace(options.ApiKey)
+                && !string.IsNullOrWhiteSpace(options.FromEmail)
+                && new EmailAddressAttribute().IsValid(options.FromEmail)),
+                "Configure Email:ApiKey and a verified Email:FromEmail when email delivery is enabled.")
+            .Validate(options => environment.IsDevelopment() || options.DeliveryEnabled,
+                "Email delivery must be enabled outside Development.")
+            .Validate(options => environment.IsDevelopment() ||
+                (Uri.TryCreate(options.FrontendBaseUrl, UriKind.Absolute, out var uri) && uri.Scheme == "https"),
+                "The frontend URL must use HTTPS outside Development.")
+            .ValidateOnStart();
+    }
+
+    private static void AddData(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddDbContext<AuthDbContext>(options => options.UseNpgsql(
+            configuration.GetConnectionString("Postgres")
+                ?? throw new InvalidOperationException("Configure ConnectionStrings:Postgres.")));
 
         var protection = services.AddDataProtection().SetApplicationName("InboxAgent");
-        var keyPath = config["DataProtection:KeysPath"];
-        if (!string.IsNullOrWhiteSpace(keyPath)) protection.PersistKeysToFileSystem(new DirectoryInfo(keyPath));
+        var keyPath = configuration["DataProtection:KeysPath"];
+        if (!string.IsNullOrWhiteSpace(keyPath))
+        {
+            protection.PersistKeysToFileSystem(new DirectoryInfo(keyPath));
+        }
+    }
 
+    private static void AddIdentity(IServiceCollection services)
+    {
+        services.AddIdentityCore<ApplicationUser>(options =>
+        {
+            options.User.RequireUniqueEmail = true;
+            options.Password.RequiredLength = 12;
+            options.Password.RequiredUniqueChars = 4;
+            options.Password.RequireDigit = true;
+            options.Password.RequireLowercase = true;
+            options.Password.RequireUppercase = true;
+            options.Password.RequireNonAlphanumeric = true;
+            options.Lockout.MaxFailedAccessAttempts = 5;
+            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+            options.Lockout.AllowedForNewUsers = true;
+            options.SignIn.RequireConfirmedEmail = true;
+        })
+            .AddRoles<IdentityRole<Guid>>()
+            .AddEntityFrameworkStores<AuthDbContext>()
+            .AddDefaultTokenProviders();
+
+        services.Configure<DataProtectionTokenProviderOptions>(options =>
+            options.TokenLifespan = TimeSpan.FromHours(1));
+        services.Configure<PasswordHasherOptions>(options => options.IterationCount = 210_000);
+    }
+
+    private static void AddAuthServices(IServiceCollection services)
+    {
         services.AddSingleton<RedisConnection>();
         services.AddSingleton<TokenBlacklist>();
         services.AddSingleton<JwtTokenIssuer>();
         services.AddScoped<IIdentityAccountService, IdentityAccountService>();
         services.AddScoped<IAuthSessionService, AuthSessionService>();
         services.AddScoped<AuthSessionRepository>();
+    }
+
+    private static void AddEmail(IServiceCollection services)
+    {
         services.AddScoped<IAuthEmailSender, AuthEmailSender>();
-        services.AddHttpClient<SendGridTransport>(x =>
+        services.AddHttpClient<SendGridTransport>(client =>
         {
-            x.BaseAddress = new Uri("https://api.sendgrid.com/");
-            x.Timeout = TimeSpan.FromSeconds(15);
+            client.BaseAddress = new Uri("https://api.sendgrid.com/");
+            client.Timeout = TimeSpan.FromSeconds(15);
         });
         services.AddHostedService<EmailOutboxWorker>();
-        services.AddHealthChecks().AddCheck<DependenciesHealthCheck>("auth_dependencies");
-        return services;
     }
 }

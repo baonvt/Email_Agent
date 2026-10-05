@@ -4,8 +4,8 @@ namespace Project_AI.Application.Interfaces;
 
 public interface IAuthSessionService
 {
-    Task<AuthTokens> CreateAsync(AuthAccount account, CancellationToken ct);
-    Task<AuthTokens> RefreshAsync(string token, CancellationToken ct);
-    Task RevokeAsync(AccessTokenContext context, bool allSessions, CancellationToken ct);
-    Task<bool> ValidateAsync(AccessTokenContext context, CancellationToken ct);
+    Task<AuthTokens> CreateAsync(AuthAccount account, CancellationToken cancellationToken);
+    Task<AuthTokens> RefreshAsync(string token, CancellationToken cancellationToken);
+    Task RevokeAsync(AccessTokenContext context, bool allSessions, CancellationToken cancellationToken);
+    Task<bool> ValidateAsync(AccessTokenContext context, CancellationToken cancellationToken);
 }

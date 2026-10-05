@@ -4,6 +4,6 @@ namespace Project_AI.Application.Interfaces;
 
 public interface IAuthEmailSender
 {
-    Task QueueConfirmationAsync(AuthAccount account, string token, CancellationToken ct);
-    Task QueuePasswordResetAsync(AuthAccount account, string token, CancellationToken ct);
+    Task QueueConfirmationAsync(AuthAccount account, string token, CancellationToken cancellationToken);
+    Task QueuePasswordResetAsync(AuthAccount account, string token, CancellationToken cancellationToken);
 }

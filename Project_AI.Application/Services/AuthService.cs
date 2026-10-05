@@ -5,43 +5,68 @@ using Project_AI.Application.Interfaces;
 
 namespace Project_AI.Application.Services;
 
-public sealed class AuthService(IIdentityAccountService accounts, IAuthSessionService sessions, IAuthEmailSender emails) : IAuthService
+public sealed class AuthService : IAuthService
 {
-    public async Task RegisterAsync(RegisterRequest request, CancellationToken ct)
+    private readonly IIdentityAccountService _identityAccountService;
+    private readonly IAuthSessionService _authSessionService;
+    private readonly IAuthEmailSender _emailSender;
+
+    public AuthService(
+        IIdentityAccountService identityAccountService,
+        IAuthSessionService authSessionService,
+        IAuthEmailSender emailSender)
     {
-        var account = await accounts.RegisterAsync(request, ct);
+        _identityAccountService = identityAccountService;
+        _authSessionService = authSessionService;
+        _emailSender = emailSender;
+    }
+
+    public async Task RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
+    {
+        var account = await _identityAccountService.RegisterAsync(request, cancellationToken);
         // A duplicate registration has the same public response, without sending unsolicited mail.
-        if (account is not null)
-            await emails.QueueConfirmationAsync(account,
-                await accounts.GenerateConfirmationTokenAsync(account.Profile.Id, ct), ct);
+        if (account is null)
+        {
+            return;
+        }
+
+        var token = await _identityAccountService.GenerateConfirmationTokenAsync(account.Profile.Id, cancellationToken);
+        await _emailSender.QueueConfirmationAsync(account, token, cancellationToken);
     }
 
-    public async Task<AuthTokens> LoginAsync(LoginRequest request, CancellationToken ct) =>
-        await sessions.CreateAsync(await accounts.CheckPasswordAsync(request, ct), ct);
-
-    public Task<AuthTokens> RefreshAsync(string token, CancellationToken ct) => sessions.RefreshAsync(token, ct);
-    public Task ConfirmEmailAsync(ConfirmEmailRequest request, CancellationToken ct) => accounts.ConfirmEmailAsync(request, ct);
-    public Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct) => accounts.ResetPasswordAsync(request, ct);
-    public Task LogoutAsync(AccessTokenContext context, bool allSessions, CancellationToken ct) =>
-        sessions.RevokeAsync(context, allSessions, ct);
-
-    public async Task ResendConfirmationAsync(EmailRequest request, CancellationToken ct)
+    public async Task<AuthTokens> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
     {
-        var account = await accounts.FindByEmailAsync(request.Email, ct);
+        var account = await _identityAccountService.CheckPasswordAsync(request, cancellationToken);
+        return await _authSessionService.CreateAsync(account, cancellationToken);
+    }
+
+    public Task<AuthTokens> RefreshAsync(string token, CancellationToken cancellationToken) => _authSessionService.RefreshAsync(token, cancellationToken);
+    public Task ConfirmEmailAsync(ConfirmEmailRequest request, CancellationToken cancellationToken) => _identityAccountService.ConfirmEmailAsync(request, cancellationToken);
+    public Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken) => _identityAccountService.ResetPasswordAsync(request, cancellationToken);
+    public Task LogoutAsync(AccessTokenContext context, bool allSessions, CancellationToken cancellationToken) =>
+        _authSessionService.RevokeAsync(context, allSessions, cancellationToken);
+
+    public async Task ResendConfirmationAsync(EmailRequest request, CancellationToken cancellationToken)
+    {
+        var account = await _identityAccountService.FindByEmailAsync(request.Email, cancellationToken);
         if (account is { EmailConfirmed: false })
-            await emails.QueueConfirmationAsync(account,
-                await accounts.GenerateConfirmationTokenAsync(account.Profile.Id, ct), ct);
+        {
+            var token = await _identityAccountService.GenerateConfirmationTokenAsync(account.Profile.Id, cancellationToken);
+            await _emailSender.QueueConfirmationAsync(account, token, cancellationToken);
+        }
     }
 
-    public async Task ForgotPasswordAsync(EmailRequest request, CancellationToken ct)
+    public async Task ForgotPasswordAsync(EmailRequest request, CancellationToken cancellationToken)
     {
-        var account = await accounts.FindByEmailAsync(request.Email, ct);
+        var account = await _identityAccountService.FindByEmailAsync(request.Email, cancellationToken);
         if (account is { EmailConfirmed: true })
-            await emails.QueuePasswordResetAsync(account,
-                await accounts.GenerateResetTokenAsync(account.Profile.Id, ct), ct);
+        {
+            var token = await _identityAccountService.GenerateResetTokenAsync(account.Profile.Id, cancellationToken);
+            await _emailSender.QueuePasswordResetAsync(account, token, cancellationToken);
+        }
     }
 
-    public async Task<UserProfile> GetProfileAsync(Guid id, CancellationToken ct) =>
-        (await accounts.FindByIdAsync(id, ct))?.Profile
+    public async Task<UserProfile> GetProfileAsync(Guid id, CancellationToken cancellationToken) =>
+        (await _identityAccountService.FindByIdAsync(id, cancellationToken))?.Profile
         ?? throw new AppException(ErrorCode.InvalidSession, "The session is no longer valid.");
 }

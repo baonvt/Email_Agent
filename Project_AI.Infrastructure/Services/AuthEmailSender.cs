@@ -12,30 +12,46 @@ using Project_AI.Infrastructure.Options;
 
 namespace Project_AI.Infrastructure.Services;
 
-public sealed class AuthEmailSender(AuthDbContext db, IDataProtectionProvider protection,
-    IOptions<EmailOptions> options, TimeProvider clock) : IAuthEmailSender
+public sealed class AuthEmailSender : IAuthEmailSender
 {
-    public Task QueueConfirmationAsync(AuthAccount account, string token, CancellationToken ct) =>
-        QueueAsync(account, token, "/auth/confirm-email", "Confirm your InboxAgent email", ct);
+    private readonly AuthDbContext _dbContext;
+    private readonly IDataProtectionProvider _dataProtectionProvider;
+    private readonly IOptions<EmailOptions> _emailOptions;
+    private readonly TimeProvider _timeProvider;
 
-    public Task QueuePasswordResetAsync(AuthAccount account, string token, CancellationToken ct) =>
-        QueueAsync(account, token, "/auth/reset-password", "Reset your InboxAgent password", ct);
-
-    private async Task QueueAsync(AuthAccount account, string token, string path, string subject, CancellationToken ct)
+    public AuthEmailSender(
+        AuthDbContext dbContext,
+        IDataProtectionProvider dataProtectionProvider,
+        IOptions<EmailOptions> emailOptions,
+        TimeProvider timeProvider)
     {
-        var link = QueryHelpers.AddQueryString(options.Value.FrontendBaseUrl.TrimEnd('/') + path,
+        _dbContext = dbContext;
+        _dataProtectionProvider = dataProtectionProvider;
+        _emailOptions = emailOptions;
+        _timeProvider = timeProvider;
+    }
+
+    public Task QueueConfirmationAsync(AuthAccount account, string token, CancellationToken cancellationToken) =>
+        QueueAsync(account, token, "/auth/confirm-email", "Confirm your InboxAgent email", cancellationToken);
+
+    public Task QueuePasswordResetAsync(AuthAccount account, string token, CancellationToken cancellationToken) =>
+        QueueAsync(account, token, "/auth/reset-password", "Reset your InboxAgent password", cancellationToken);
+
+    private async Task QueueAsync(AuthAccount account, string token, string path, string subject, CancellationToken cancellationToken)
+    {
+        var link = QueryHelpers.AddQueryString(_emailOptions.Value.FrontendBaseUrl.TrimEnd('/') + path,
             new Dictionary<string, string?> { ["userId"] = account.Profile.Id.ToString(), ["token"] = token });
         var html = $"<p>{WebUtility.HtmlEncode(subject)}</p><p><a href=\"{WebUtility.HtmlEncode(link)}\">Continue</a></p>"
             + "<p>If you did not request this, you can ignore this email.</p>";
         var payload = new EmailPayload(account.Profile.Email, subject, html,
             $"{subject}\n{link}\nIf you did not request this, you can ignore this email.");
-        var now = clock.GetUtcNow();
-        db.EmailOutbox.Add(new EmailOutboxMessage
+        var now = _timeProvider.GetUtcNow();
+        _dbContext.EmailOutbox.Add(new EmailOutboxMessage
         {
-            ProtectedPayload = protection.CreateProtector("InboxAgent.AuthEmail.v1")
+            ProtectedPayload = _dataProtectionProvider.CreateProtector("InboxAgent.AuthEmail.v1")
                 .Protect(JsonSerializer.Serialize(payload)),
             CreatedAt = now, NextAttemptAt = now
         });
-        await db.SaveChangesAsync(ct);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }
