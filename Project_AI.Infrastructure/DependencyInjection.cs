@@ -126,5 +126,6 @@ public static class DependencyInjection
         services.AddSingleton<MailboxTokenProtector>();
         services.AddScoped<IMailboxConnectionStore, MailboxConnectionRepository>();
         services.AddScoped<MailboxAccessTokenService>();
+        services.AddScoped<IMailboxOAuthRequestStore, MailboxOAuthRequestStore>();
     }
 }
