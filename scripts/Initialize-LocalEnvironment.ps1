@@ -1,3 +1,5 @@
+#Requires -Version 7.0
+# Optional helper: generates .env and configures the API's local User Secrets.
 $ErrorActionPreference = 'Stop'
 $workspacePath = Split-Path $PSScriptRoot -Parent
 $envPath = Join-Path $workspacePath '.env'
@@ -29,9 +31,9 @@ SENDGRID_FROM_EMAIL=
 "@
 [System.IO.File]::WriteAllText($envPath, $contents)
 $apiPath = Join-Path $workspacePath 'Project_AI/Project_AI.API.csproj'
-dotnet user-secrets set 'ConnectionStrings:Postgres' "Host=localhost;Port=5432;Database=inboxagent;Username=inboxagent;Password=$postgresSecret" --project $apiPath | Out-Null
+dotnet user-secrets set 'ConnectionStrings:Postgres' "Host=127.0.0.1;Port=5432;Database=inboxagent;Username=inboxagent;Password=$postgresSecret" --project $apiPath | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Could not configure PostgreSQL User Secrets.' }
-dotnet user-secrets set 'ConnectionStrings:Redis' "localhost:6379,password=$redisSecret" --project $apiPath | Out-Null
+dotnet user-secrets set 'ConnectionStrings:Redis' "127.0.0.1:6379,password=$redisSecret" --project $apiPath | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Could not configure Redis User Secrets.' }
 dotnet user-secrets set 'Jwt:SigningKey' $jwtSecret --project $apiPath | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Could not configure JWT User Secrets.' }

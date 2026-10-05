@@ -4,9 +4,7 @@ services:
     environment:
       POSTGRES_DB: inboxagent
       POSTGRES_USER: inboxagent
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/Initialize-LocalEnvironment.ps1 first}
-    ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -18,10 +16,8 @@ services:
   redis:
     image: redis:7.4-alpine
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:?Run scripts/Initialize-LocalEnvironment.ps1 first}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
     command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly yes --maxmemory 128mb --maxmemory-policy noeviction"]
-    ports:
-      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -30,36 +26,33 @@ services:
       timeout: 3s
       retries: 20
 
-  dataprotection-init:
-    image: mcr.microsoft.com/dotnet/runtime-deps:10.0
-    user: "0"
-    entrypoint: ["sh", "-c", "mkdir -p /keys && chown \"$${APP_UID}:$${APP_UID}\" /keys && chmod 700 /keys"]
-    volumes:
-      - dataprotection-keys:/keys
-
   project_ai.api:
     image: ${DOCKER_REGISTRY-}projectaiapi
     build:
       context: .
       dockerfile: Project_AI/Dockerfile
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
       ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=inboxagent;Username=inboxagent;Password=${POSTGRES_PASSWORD}
       ConnectionStrings__Redis: redis:6379,password=${REDIS_PASSWORD}
-      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Run scripts/Initialize-LocalEnvironment.ps1 first}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env}
       AuthWeb__AllowedOrigins__0: ${FRONTEND_ORIGIN:-http://localhost:3000}
       Email__FrontendBaseUrl: ${FRONTEND_ORIGIN:-http://localhost:3000}
       Email__DeliveryEnabled: ${SENDGRID_DELIVERY_ENABLED:-false}
       Email__ApiKey: ${SENDGRID_API_KEY:-}
       Email__FromEmail: ${SENDGRID_FROM_EMAIL:-}
-      Email__FromName: InboxAgent
       DataProtection__KeysPath: /home/app/.aspnet/DataProtection-Keys
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      dataprotection-init:
-        condition: service_completed_successfully
     volumes:
       - dataprotection-keys:/home/app/.aspnet/DataProtection-Keys
 

@@ -2,8 +2,12 @@
 # Visual Studio fast mode runs this stage; the published image uses final.
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
+RUN mkdir -p /home/app/.aspnet/DataProtection-Keys \
+    && chown $APP_UID:$APP_UID /home/app/.aspnet/DataProtection-Keys \
+    && chmod 700 /home/app/.aspnet/DataProtection-Keys
 USER $APP_UID
 EXPOSE 8080
+# Visual Studio's HTTPS launch profile uses 8081; Compose uses 8080.
 EXPOSE 8081
 
 
@@ -24,7 +28,6 @@ COPY ["Project_AI.Infrastructure/", "Project_AI.Infrastructure/"]
 
 # Publish builds once; a separate dotnet build would repeat the compilation.
 FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
 RUN --mount=type=cache,id=inboxagent-nuget,target=/root/.nuget/packages \
     dotnet publish "Project_AI/Project_AI.API.csproj" -c $BUILD_CONFIGURATION \
     -o /app/publish --no-restore /p:UseAppHost=false
