@@ -2,8 +2,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
-
-
+using Project_AI.API.Options;
+using Project_AI.API.Security;
+using Project_AI.Application.Common.Enums;
+using Project_AI.Application.Common.Exceptions;
+using Project_AI.Application.DTOs.Auth;
+using Project_AI.Application.Interfaces;
 
 namespace Project_AI.API.Controllers;
 
@@ -60,7 +64,7 @@ public sealed class AuthController(IAuthService auth, IOptions<AuthWebOptions> o
         {
             return WriteTokens(await auth.RefreshAsync(token ?? "", ct));
         }
-        catch (AuthException ex) when (ex.Kind == AuthErrorKind.Unauthorized)
+        catch (AppException ex) when (ex.Code == ErrorCode.InvalidSession)
         {
             DeleteRefreshCookie();
             throw;
@@ -100,6 +104,6 @@ public sealed class AuthController(IAuthService auth, IOptions<AuthWebOptions> o
         Path = "/", IsEssential = true
     };
     private AccessTokenContext CurrentToken() => AccessTokenClaims.Read(User)
-        ?? throw new AuthException(AuthErrorKind.Unauthorized, "invalid_session", "The session is no longer valid.");
+        ?? throw new AppException(ErrorCode.InvalidSession, "The session is no longer valid.");
     private AcceptedResult EmailAccepted() => Accepted(new { message = "If the account is eligible, an email will be sent." });
 }

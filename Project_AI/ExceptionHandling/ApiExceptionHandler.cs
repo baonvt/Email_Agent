@@ -1,5 +1,8 @@
+using System.Net;
 using Microsoft.AspNetCore.Diagnostics;
-
+using Project_AI.API.Responses;
+using Project_AI.Application.Common.Enums;
+using Project_AI.Application.Common.Exceptions;
 
 namespace Project_AI.API.ExceptionHandling;
 
@@ -7,21 +10,19 @@ public sealed class ApiExceptionHandler(ILogger<ApiExceptionHandler> logger) : I
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext context, Exception exception, CancellationToken ct)
     {
-        var error = exception as AuthException;
-        if (error is null) logger.LogError("Request failed ({ErrorType}), trace {TraceId}.", exception.GetType().Name, context.TraceIdentifier);
-        var status = error?.Kind switch
-        {
-            AuthErrorKind.InvalidInput => StatusCodes.Status400BadRequest,
-            AuthErrorKind.Unauthorized => StatusCodes.Status401Unauthorized,
-            AuthErrorKind.Unavailable => StatusCodes.Status503ServiceUnavailable,
-            _ => StatusCodes.Status500InternalServerError
-        };
-        await Results.Problem(statusCode: status,
-            title: error?.Message ?? "An unexpected error occurred.",
-            extensions: new Dictionary<string, object?>
-            {
-                ["code"] = error?.Code ?? "internal_error", ["traceId"] = context.TraceIdentifier
-            }).ExecuteAsync(context);
+        if (context.RequestAborted.IsCancellationRequested) return true;
+        var error = exception as AppException;
+        var code = error?.Code ?? ErrorCode.InternalError;
+        var status = error is not null ? ResponseCodes.StatusFor(code)
+            : exception is BadHttpRequestException badRequest
+                ? (HttpStatusCode)badRequest.StatusCode : HttpStatusCode.InternalServerError;
+        if (exception is BadHttpRequestException) code = ResponseCodes.ErrorFor(status);
+        if ((int)status >= 500)
+            logger.LogError("Request failed with {ErrorCode} ({ErrorType}), trace {TraceId}. Stack: {StackTrace}",
+                code, exception.GetType().Name, context.TraceIdentifier, exception.StackTrace);
+        await ErrorResponse.WriteAsync(context, ErrorResponse.Create(context, code,
+            detail: (int)status < 500 ? error?.Message : null,
+            errors: (int)status < 500 ? error?.Errors : null, status: status));
         return true;
     }
 }

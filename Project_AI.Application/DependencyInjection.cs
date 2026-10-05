@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
-using Project_AI.Application.Features.Auth;
+using Project_AI.Application.Interfaces;
+using Project_AI.Application.Services;
 
 namespace Project_AI.Application;
 

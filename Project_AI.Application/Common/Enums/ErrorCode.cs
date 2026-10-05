@@ -1,0 +1,33 @@
+namespace Project_AI.Application.Common.Enums;
+
+// These names form the public error-code contract (serialized as snake_case).
+// HTTP status numbers belong to the API layer, not to this enum.
+public enum ErrorCode
+{
+    InternalError = 0,
+    InvalidInput,
+    ValidationFailed,
+    Unauthorized,
+    Forbidden,
+    NotFound,
+    Conflict,
+    MethodNotAllowed,
+    RequestTimeout,
+    PayloadTooLarge,
+    UnsupportedMediaType,
+    TooManyRequests,
+    ServiceUnavailable,
+    CsrfRejected,
+    InvalidRegistration,
+    InvalidPassword,
+    RegistrationFailed,
+    InvalidCredentials,
+    LoginFailed,
+    InvalidLink,
+    InvalidReset,
+    ResetFailed,
+    InvalidSession,
+    AuthUnavailable,
+    LogoutFailed,
+    RoleAssignmentFailed
+}

@@ -5,11 +5,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-
-
-using Project_AI.Infrastructure.Email;
-using Project_AI.Infrastructure.Persistence;
-using StackExchange.Redis;
+using Project_AI.Application.Interfaces;
+using Project_AI.Infrastructure.BackgroundJobs;
+using Project_AI.Infrastructure.Data;
+using Project_AI.Infrastructure.Data.Identity;
+using Project_AI.Infrastructure.Health;
+using Project_AI.Infrastructure.Options;
+using Project_AI.Infrastructure.Repositories;
+using Project_AI.Infrastructure.Services;
 
 namespace Project_AI.Infrastructure;
 
@@ -55,20 +58,12 @@ public static class DependencyInjection
         var keyPath = config["DataProtection:KeysPath"];
         if (!string.IsNullOrWhiteSpace(keyPath)) protection.PersistKeysToFileSystem(new DirectoryInfo(keyPath));
 
-        services.AddSingleton<IConnectionMultiplexer>(_ =>
-        {
-            var redis = ConfigurationOptions.Parse(config.GetConnectionString("Redis")
-                ?? throw new InvalidOperationException("Configure ConnectionStrings:Redis."));
-            redis.AbortOnConnectFail = false;
-            redis.ConnectTimeout = 2000;
-            redis.AsyncTimeout = 2000;
-            redis.SyncTimeout = 2000;
-            return ConnectionMultiplexer.Connect(redis);
-        });
+        services.AddSingleton<RedisConnection>();
         services.AddSingleton<TokenBlacklist>();
         services.AddSingleton<JwtTokenIssuer>();
-        services.AddScoped<IIdentityAccounts, IdentityAccounts>();
-        services.AddScoped<IAuthSessions, AuthSessions>();
+        services.AddScoped<IIdentityAccounts, IdentityAccountService>();
+        services.AddScoped<IAuthSessions, AuthSessionService>();
+        services.AddScoped<IAuthSessionRepository, AuthSessionRepository>();
         services.AddScoped<IAuthEmailSender, AuthEmailSender>();
         services.AddHttpClient<SendGridTransport>(x =>
         {
@@ -76,6 +71,7 @@ public static class DependencyInjection
             x.Timeout = TimeSpan.FromSeconds(15);
         });
         services.AddHostedService<EmailOutboxWorker>();
+        services.AddHealthChecks().AddCheck<DependenciesHealthCheck>("auth_dependencies");
         return services;
     }
 }

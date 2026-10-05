@@ -1,4 +1,7 @@
 using Microsoft.Extensions.Options;
+using Project_AI.API.Options;
+using Project_AI.API.Responses;
+using Project_AI.Application.Common.Enums;
 
 namespace Project_AI.API.Middleware;
 
@@ -6,7 +9,7 @@ public sealed class AuthBrowserGuard(RequestDelegate next)
 {
     public async Task InvokeAsync(HttpContext context, IOptions<AuthWebOptions> options)
     {
-        if (context.Request.Path.StartsWithSegments("/api/auth"))
+        if (context.GetEndpoint() is not null && context.Request.Path.StartsWithSegments("/api/auth"))
         {
             context.Response.Headers.CacheControl = "no-store";
             context.Response.Headers.Pragma = "no-cache";
@@ -18,9 +21,7 @@ public sealed class AuthBrowserGuard(RequestDelegate next)
                 if (!options.Value.AllowedOrigins.Contains(origin, StringComparer.Ordinal)
                     || context.Request.Headers["X-InboxAgent-CSRF"] != "1")
                 {
-                    await Results.Problem(statusCode: 403, title: "Invalid browser request",
-                        detail: "A trusted Origin and X-InboxAgent-CSRF: 1 header are required.",
-                        extensions: new Dictionary<string, object?> { ["code"] = "csrf_rejected" }).ExecuteAsync(context);
+                    await ErrorResponse.WriteAsync(context, ErrorCode.CsrfRejected);
                     return;
                 }
             }
