@@ -10,6 +10,7 @@ public static class DependencyInjection
     {
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IMailboxConnectionService, MailboxConnectionService>();
+        services.AddScoped<IEmailSyncService, EmailSyncService>();
         return services;
     }
 }
