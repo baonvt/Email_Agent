@@ -119,3 +119,19 @@ Authorization: Bearer {{AccessToken}}
 ### EmailId là id local từ items trong response danh sách.
 GET {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/emails/{{EmailId}}
 Authorization: Bearer {{AccessToken}}
+
+### Phân loại và tóm tắt tiếng Việt; dùng lại kết quả nếu nội dung chưa đổi.
+POST {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/emails/{{EmailId}}/analysis
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Authorization: Bearer {{AccessToken}}
+
+### Đọc trạng thái/kết quả đã lưu, không gọi Gemini.
+GET {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/emails/{{EmailId}}/analysis
+Authorization: Bearer {{AccessToken}}
+
+### Gọi Gemini lại dù đang có kết quả; có thể phát sinh chi phí API.
+POST {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/emails/{{EmailId}}/analysis?force=true
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Authorization: Bearer {{AccessToken}}

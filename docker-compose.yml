@@ -53,6 +53,9 @@ services:
       Gmail__RedirectUri: ${GMAIL_REDIRECT_URI:-http://localhost:8080/api/mailboxes/gmail/callback}
       EmailSync__Enabled: ${EMAIL_SYNC_ENABLED:-false}
       EmailSync__IntervalSeconds: ${EMAIL_SYNC_INTERVAL_SECONDS:-300}
+      Gemini__Enabled: ${GEMINI_ENABLED:-false}
+      Gemini__ApiKey: ${GEMINI_API_KEY:-}
+      Gemini__Model: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
       DataProtection__KeysPath: /home/app/.aspnet/DataProtection-Keys
     depends_on:
       postgres:

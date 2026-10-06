@@ -2,7 +2,7 @@
 
 Dự án cá nhân dùng ASP.NET Core 10 và Clean Architecture với bốn tầng. Hiện đã có đăng ký, đăng nhập, xác nhận email, đặt lại mật khẩu và quản lý phiên bằng PostgreSQL, JWT, Redis, SendGrid.
 
-Đã có Gmail OAuth và đồng bộ Inbox: kết nối một hộp thư mỗi tài khoản, mã hóa/refresh token, cache email, cập nhật thay đổi và API đọc danh sách/chi tiết. Outlook, trích task, lịch và agent xử lý email là các phần phát triển tiếp theo. Frontend chưa được xây.
+Đã có Gmail OAuth, đồng bộ Inbox và Gemini phân loại/tóm tắt email tiếng Việt. Kết nối một hộp thư mỗi tài khoản, mã hóa/refresh token, cache email, cập nhật thay đổi và API đọc danh sách/chi tiết. Outlook, soạn nháp, trích task và lịch là các phần phát triển tiếp theo. Frontend chưa được xây.
 
 ## Chạy bằng Docker
 
@@ -111,6 +111,32 @@ Login/refresh trả `accessToken`, `accessTokenExpiresAt`, `user`; refresh token
 Mật khẩu dài 12–128 ký tự, có ít nhất bốn ký tự khác nhau, chữ hoa/thường, số và ký tự đặc biệt. Sai mật khẩu năm lần khóa 15 phút. Giới hạn mặc định 20 request auth/IP/phút, chỉnh bằng `RateLimiting:AuthPermitLimit`.
 
 Access JWT hết hạn sau 15 phút. Refresh session có hạn tuyệt đối bảy ngày, rotation không kéo dài hạn này; database chỉ lưu hash refresh token. Logout, reset và cấp Admin thu hồi session. Protected request kiểm tra cả PostgreSQL session/security stamp và Redis blacklist; Redis mất kết nối trả 503.
+
+## Phân loại và tóm tắt bằng Gemini
+
+Tạo API key tại [Google AI Studio](https://aistudio.google.com/apikey), rồi bổ sung vào `.env` đang có; không tạo lại file nếu đã cấu hình database/Gmail:
+
+```dotenv
+GEMINI_ENABLED=true
+GEMINI_API_KEY=<API key của bạn>
+GEMINI_MODEL=gemini-3.5-flash-lite
+```
+
+Chạy `docker compose up -d --build project_ai.api`. Nếu chạy bằng IDE, đặt `Gemini:Enabled`, `Gemini:ApiKey`, `Gemini:Model` bằng User Secrets. Model có thể thay bằng model hỗ trợ JSON Schema trong [tài liệu Gemini](https://ai.google.dev/gemini-api/docs/models).
+
+Sau khi login, kết nối và sync Gmail, lấy MailboxId/EmailId từ API danh sách. Các endpoint cần Bearer; POST cần thêm Origin và CSRF như phần auth:
+
+| Method | Endpoint | Kết quả |
+|---|---|---|
+| POST | `/api/mailboxes/{mailboxId}/emails/{emailId}/analysis` | Phân tích hoặc dùng kết quả còn hiệu lực |
+| POST | Cùng endpoint, thêm `?force=true` | Yêu cầu phân tích lại |
+| GET | Cùng endpoint | Trạng thái và kết quả đã lưu, không gọi AI |
+
+Kết quả gồm summary tiếng Việt, category (`work`, `finance`, `personal`, `promotion`, `spam`, `other`), priority (`low`, `normal`, `high`), confidence, inputTruncated, provider/model và thời gian phân tích. Confidence là ước lượng của AI. Trạng thái gồm `not_started`, `processing`, `completed`, `outdated`, `failed`; khi lần làm lại thất bại, GET có thể vẫn trả kết quả cũ nếu nội dung chưa đổi.
+
+Gemini mặc định tắt. POST gửi nội dung email đến Google khi cần phân tích, có thể tính phí theo tài khoản API. Không có phân tích tự động hoặc tự gửi email. Input giới hạn mặc định 12000 ký tự; `inputTruncated` báo phần nội dung bị cắt. Thay đổi nội dung làm kết quả hết hiệu lực; chỉ đổi nhãn không gọi AI lại. Kết quả JSON được kiểm tra trước khi lưu, nhưng bạn vẫn cần xem lại nhận định AI.
+
+Các lỗi riêng: 409 analysis đang chạy/nội dung đã thay đổi, 429 Gemini giới hạn request, 502 JSON không hợp lệ hoặc phản hồi không hoàn tất, 503 chưa cấu hình/Gemini không sẵn sàng. Không có retry tự động cho request AI. Xem ví dụ trong file `.http`.
 
 ## Response lỗi
 
