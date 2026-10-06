@@ -16,6 +16,7 @@ public sealed class EmailMessage
     public string[] Labels { get; private set; } = [];
     public DateTimeOffset ReceivedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
+    public Guid ContentVersion { get; private set; }
 
     private EmailMessage() { }
 
@@ -25,12 +26,16 @@ public sealed class EmailMessage
         Id = Guid.NewGuid();
         MailboxConnectionId = mailboxConnectionId;
         ProviderMessageId = providerMessageId;
+        ContentVersion = Guid.NewGuid();
     }
 
     public void Update(string threadId, string subject, string from, string to, string snippet,
         string bodyText, bool bodyTruncated, bool hasAttachments, string[] labels,
         DateTimeOffset receivedAt, DateTimeOffset now)
     {
+        if (Subject != subject || From != from || To != to || Snippet != snippet || BodyText != bodyText
+            || BodyTruncated != bodyTruncated || ReceivedAt != receivedAt)
+            ContentVersion = Guid.NewGuid();
         ThreadId = threadId;
         Subject = subject;
         From = from;

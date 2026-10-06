@@ -20,6 +20,8 @@ public sealed class AuthDbContext : IdentityDbContext<ApplicationUser, IdentityR
     public DbSet<MailboxCredential> MailboxCredentials => Set<MailboxCredential>();
     public DbSet<EmailMessage> EmailMessages => Set<EmailMessage>();
     public DbSet<MailboxSyncState> MailboxSyncStates => Set<MailboxSyncState>();
+    public DbSet<EmailAnalysis> EmailAnalyses => Set<EmailAnalysis>();
+    public DbSet<EmailAnalysisRequest> EmailAnalysisRequests => Set<EmailAnalysisRequest>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -82,6 +84,24 @@ public sealed class AuthDbContext : IdentityDbContext<ApplicationUser, IdentityR
             b.Property(x => x.HistoryId).HasMaxLength(32);
             b.Property(x => x.LastErrorCode).HasMaxLength(64);
             b.HasOne<MailboxConnection>().WithOne().HasForeignKey<MailboxSyncState>(x => x.MailboxConnectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+        builder.Entity<EmailAnalysis>(b =>
+        {
+            b.HasKey(x => x.EmailMessageId);
+            b.Property(x => x.Summary).HasMaxLength(2000);
+            b.Property(x => x.Category).HasConversion<string>().HasMaxLength(32);
+            b.Property(x => x.Priority).HasConversion<string>().HasMaxLength(16);
+            b.Property(x => x.Provider).HasMaxLength(32);
+            b.Property(x => x.Model).HasMaxLength(100);
+            b.HasOne<EmailMessage>().WithOne().HasForeignKey<EmailAnalysis>(x => x.EmailMessageId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+        builder.Entity<EmailAnalysisRequest>(b =>
+        {
+            b.HasKey(x => x.EmailMessageId);
+            b.Property(x => x.LastErrorCode).HasMaxLength(64);
+            b.HasOne<EmailMessage>().WithOne().HasForeignKey<EmailAnalysisRequest>(x => x.EmailMessageId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }
