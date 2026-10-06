@@ -126,6 +126,7 @@ public static class DependencyInjection
         services.AddSingleton<MailboxTokenProtector>();
         services.AddScoped<IMailboxConnectionStore, MailboxConnectionRepository>();
         services.AddScoped<MailboxAccessTokenService>();
+        services.AddScoped<IEmailSyncStore, EmailSyncRepository>();
         services.AddHttpClient<IGmailMessageClient, GmailMessageClient>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(15);
