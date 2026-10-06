@@ -28,6 +28,7 @@ public static class DependencyInjection
         AddAuthServices(services);
         AddEmail(services);
         AddMailboxes(services, configuration, environment);
+        AddEmailAnalysis(services, configuration);
         services.AddHealthChecks().AddCheck<DependenciesHealthCheck>("auth_dependencies");
         return services;
     }
@@ -112,6 +113,21 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(15);
         });
         services.AddHostedService<EmailOutboxWorker>();
+    }
+
+    private static void AddEmailAnalysis(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<GeminiOptions>().Bind(configuration.GetSection(GeminiOptions.Section))
+            .ValidateDataAnnotations()
+            .Validate(options => !options.Enabled || options.HasValidCredentials(),
+                "Configure a valid Gemini:ApiKey and Gemini:Model when Gemini is enabled.")
+            .ValidateOnStart();
+        services.AddScoped<IEmailAnalysisStore, EmailAnalysisRepository>();
+        services.AddHttpClient<IEmailAnalyzer, GeminiEmailAnalyzer>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(45);
+            client.MaxResponseContentBufferSize = 256 * 1024;
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
     }
 
     private static void AddMailboxes(IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
