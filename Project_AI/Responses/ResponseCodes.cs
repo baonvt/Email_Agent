@@ -16,14 +16,15 @@ public static class ResponseCodes
         ErrorCode.Unauthorized or ErrorCode.InvalidCredentials or ErrorCode.InvalidSession => HttpStatusCode.Unauthorized,
         ErrorCode.Forbidden or ErrorCode.CsrfRejected => HttpStatusCode.Forbidden,
         ErrorCode.NotFound => HttpStatusCode.NotFound,
-        ErrorCode.Conflict or ErrorCode.MailboxReconnectRequired => HttpStatusCode.Conflict,
+        ErrorCode.Conflict or ErrorCode.MailboxReconnectRequired or ErrorCode.MailboxSyncInProgress => HttpStatusCode.Conflict,
         ErrorCode.MethodNotAllowed => HttpStatusCode.MethodNotAllowed,
         ErrorCode.RequestTimeout => HttpStatusCode.RequestTimeout,
         ErrorCode.PayloadTooLarge => HttpStatusCode.RequestEntityTooLarge,
         ErrorCode.UnsupportedMediaType => HttpStatusCode.UnsupportedMediaType,
-        ErrorCode.TooManyRequests => HttpStatusCode.TooManyRequests,
+        ErrorCode.TooManyRequests or ErrorCode.MailboxSyncThrottled => HttpStatusCode.TooManyRequests,
         ErrorCode.ServiceUnavailable or ErrorCode.AuthUnavailable or ErrorCode.MailboxNotConfigured
             or ErrorCode.MailboxUnavailable => HttpStatusCode.ServiceUnavailable,
+        ErrorCode.MailboxHistoryExpired => HttpStatusCode.Conflict,
         _ => HttpStatusCode.InternalServerError
     };
 
@@ -95,6 +96,9 @@ public static class ResponseCodes
         ErrorCode.OAuthDenied => "The required mailbox permission was not granted.",
         ErrorCode.InvalidOAuthState => "The authorization request is invalid or expired. Start again in the same browser.",
         ErrorCode.MailboxReconnectRequired => "Reconnect the mailbox to restore Google authorization.",
+        ErrorCode.MailboxSyncInProgress => "A mailbox synchronization is already running. Try again later.",
+        ErrorCode.MailboxSyncThrottled => "Google temporarily limited synchronization. Try again later.",
+        ErrorCode.MailboxHistoryExpired => "The mailbox history expired. Synchronize the inbox again.",
         _ => "An unexpected error occurred."
     };
 }

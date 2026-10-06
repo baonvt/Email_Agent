@@ -35,5 +35,8 @@ public enum ErrorCode
     OAuthRejected,
     OAuthDenied,
     InvalidOAuthState,
-    MailboxReconnectRequired
+    MailboxReconnectRequired,
+    MailboxSyncInProgress,
+    MailboxSyncThrottled,
+    MailboxHistoryExpired
 }
