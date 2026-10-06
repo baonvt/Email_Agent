@@ -134,5 +134,8 @@ public static class DependencyInjection
             client.MaxResponseContentBufferSize = 8 * 1024 * 1024;
         });
         services.AddScoped<IMailboxOAuthRequestStore, MailboxOAuthRequestStore>();
+        services.AddOptions<EmailSyncOptions>().Bind(configuration.GetSection(EmailSyncOptions.Section))
+            .ValidateDataAnnotations().ValidateOnStart();
+        services.AddHostedService<EmailSyncWorker>();
     }
 }

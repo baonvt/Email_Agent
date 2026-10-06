@@ -51,6 +51,8 @@ services:
       Gmail__ClientId: ${GMAIL_CLIENT_ID:-}
       Gmail__ClientSecret: ${GMAIL_CLIENT_SECRET:-}
       Gmail__RedirectUri: ${GMAIL_REDIRECT_URI:-http://localhost:8080/api/mailboxes/gmail/callback}
+      EmailSync__Enabled: ${EMAIL_SYNC_ENABLED:-false}
+      EmailSync__IntervalSeconds: ${EMAIL_SYNC_INTERVAL_SECONDS:-300}
       DataProtection__KeysPath: /home/app/.aspnet/DataProtection-Keys
     depends_on:
       postgres:
