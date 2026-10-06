@@ -84,6 +84,12 @@ public sealed class MailboxConnectionRepository : IMailboxConnectionStore
             };
         }
 
+        if (mailbox.ProviderAccountId != account.AccountId)
+            await ClearEmailDataAsync(mailbox.Id, cancellationToken);
+        else
+            await _dbContext.MailboxSyncStates.Where(x => x.MailboxConnectionId == mailbox.Id)
+                .ExecuteUpdateAsync(update => update.SetProperty(x => x.LeaseId, (Guid?)null)
+                    .SetProperty(x => x.LeaseExpiresAt, (DateTimeOffset?)null), cancellationToken);
         mailbox.Connect(account.AccountId, account.Email, _timeProvider.GetUtcNow());
         if (credential is null)
         {
@@ -108,6 +114,7 @@ public sealed class MailboxConnectionRepository : IMailboxConnectionStore
         if (mailbox is not null)
         {
             mailbox.Disconnect(_timeProvider.GetUtcNow());
+            await ClearEmailDataAsync(mailbox.Id, cancellationToken);
             var credential = await _dbContext.MailboxCredentials
                 .SingleOrDefaultAsync(x => x.MailboxConnectionId == mailbox.Id, cancellationToken);
             if (credential is not null)
@@ -117,6 +124,12 @@ public sealed class MailboxConnectionRepository : IMailboxConnectionStore
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
         await transaction.CommitAsync(cancellationToken);
+    }
+
+    private async Task ClearEmailDataAsync(Guid mailboxId, CancellationToken cancellationToken)
+    {
+        await _dbContext.EmailMessages.Where(x => x.MailboxConnectionId == mailboxId).ExecuteDeleteAsync(cancellationToken);
+        await _dbContext.MailboxSyncStates.Where(x => x.MailboxConnectionId == mailboxId).ExecuteDeleteAsync(cancellationToken);
     }
 
     private async Task<MailboxConnection?> LockMailboxAsync(Guid userId, Guid mailboxId, CancellationToken cancellationToken) =>
