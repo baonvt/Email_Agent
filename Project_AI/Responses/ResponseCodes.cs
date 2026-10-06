@@ -16,14 +16,16 @@ public static class ResponseCodes
         ErrorCode.Unauthorized or ErrorCode.InvalidCredentials or ErrorCode.InvalidSession => HttpStatusCode.Unauthorized,
         ErrorCode.Forbidden or ErrorCode.CsrfRejected => HttpStatusCode.Forbidden,
         ErrorCode.NotFound => HttpStatusCode.NotFound,
-        ErrorCode.Conflict or ErrorCode.MailboxReconnectRequired or ErrorCode.MailboxSyncInProgress => HttpStatusCode.Conflict,
+        ErrorCode.Conflict or ErrorCode.MailboxReconnectRequired or ErrorCode.MailboxSyncInProgress
+            or ErrorCode.AnalysisInProgress or ErrorCode.AnalysisOutdated => HttpStatusCode.Conflict,
         ErrorCode.MethodNotAllowed => HttpStatusCode.MethodNotAllowed,
         ErrorCode.RequestTimeout => HttpStatusCode.RequestTimeout,
         ErrorCode.PayloadTooLarge => HttpStatusCode.RequestEntityTooLarge,
         ErrorCode.UnsupportedMediaType => HttpStatusCode.UnsupportedMediaType,
-        ErrorCode.TooManyRequests or ErrorCode.MailboxSyncThrottled => HttpStatusCode.TooManyRequests,
+        ErrorCode.TooManyRequests or ErrorCode.MailboxSyncThrottled or ErrorCode.AiThrottled => HttpStatusCode.TooManyRequests,
         ErrorCode.ServiceUnavailable or ErrorCode.AuthUnavailable or ErrorCode.MailboxNotConfigured
-            or ErrorCode.MailboxUnavailable => HttpStatusCode.ServiceUnavailable,
+            or ErrorCode.MailboxUnavailable or ErrorCode.AiNotConfigured or ErrorCode.AiUnavailable => HttpStatusCode.ServiceUnavailable,
+        ErrorCode.AiInvalidResponse => HttpStatusCode.BadGateway,
         ErrorCode.MailboxHistoryExpired => HttpStatusCode.Conflict,
         _ => HttpStatusCode.InternalServerError
     };
@@ -99,6 +101,12 @@ public static class ResponseCodes
         ErrorCode.MailboxSyncInProgress => "A mailbox synchronization is already running. Try again later.",
         ErrorCode.MailboxSyncThrottled => "Google temporarily limited synchronization. Try again later.",
         ErrorCode.MailboxHistoryExpired => "The mailbox history expired. Synchronize the inbox again.",
+        ErrorCode.AiNotConfigured => "Configure Gemini before analyzing email.",
+        ErrorCode.AiUnavailable => "Email analysis is temporarily unavailable. Try again later.",
+        ErrorCode.AiThrottled => "The AI provider temporarily limited requests. Try again later.",
+        ErrorCode.AiInvalidResponse => "The AI provider did not return a valid email analysis.",
+        ErrorCode.AnalysisInProgress => "An analysis of this email is already running.",
+        ErrorCode.AnalysisOutdated => "The email or mailbox changed during analysis. Try again.",
         _ => "An unexpected error occurred."
     };
 }

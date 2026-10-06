@@ -38,5 +38,11 @@ public enum ErrorCode
     MailboxReconnectRequired,
     MailboxSyncInProgress,
     MailboxSyncThrottled,
-    MailboxHistoryExpired
+    MailboxHistoryExpired,
+    AiNotConfigured,
+    AiUnavailable,
+    AiThrottled,
+    AiInvalidResponse,
+    AnalysisInProgress,
+    AnalysisOutdated
 }
