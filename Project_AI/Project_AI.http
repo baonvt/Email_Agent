@@ -7,6 +7,8 @@
 @UserId = 00000000-0000-0000-0000-000000000000
 @EmailToken = paste-token-from-email-link-here
 @ResetToken = paste-token-from-password-reset-link-here
+@MailboxId = 00000000-0000-0000-0000-000000000000
+@EmailId = 00000000-0000-0000-0000-000000000000
 
 GET {{Project_AI_HostAddress}}/health/ready
 
@@ -98,4 +100,22 @@ Authorization: Bearer {{AccessToken}}
 POST {{Project_AI_HostAddress}}/api/mailboxes/gmail/disconnect
 Origin: {{FrontendOrigin}}
 X-InboxAgent-CSRF: 1
+Authorization: Bearer {{AccessToken}}
+
+### Lấy MailboxId từ GET /api/mailboxes; mailbox cần connected.
+POST {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/sync
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Authorization: Bearer {{AccessToken}}
+
+### Trạng thái đồng bộ lần gần nhất.
+GET {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/sync
+Authorization: Bearer {{AccessToken}}
+
+### Cache Inbox mới nhất trước, pageSize tối đa 100.
+GET {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/emails?page=1&pageSize=20&unreadOnly=false
+Authorization: Bearer {{AccessToken}}
+
+### EmailId là id local từ items trong response danh sách.
+GET {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/emails/{{EmailId}}
 Authorization: Bearer {{AccessToken}}

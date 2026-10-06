@@ -2,7 +2,7 @@
 
 Dự án cá nhân dùng ASP.NET Core 10 và Clean Architecture với bốn tầng. Hiện đã có đăng ký, đăng nhập, xác nhận email, đặt lại mật khẩu và quản lý phiên bằng PostgreSQL, JWT, Redis, SendGrid.
 
-Đã có Gmail OAuth: kết nối một hộp thư mỗi tài khoản, mã hóa/refresh token, xem trạng thái và ngắt kết nối. Làm theo [hướng dẫn tạo Google OAuth Client và thử kết nối](docs/gmail-oauth.md). Outlook, đồng bộ hộp thư, trích task, lịch và agent xử lý email là các phần phát triển tiếp theo. Frontend chưa được xây.
+Đã có Gmail OAuth và đồng bộ Inbox: kết nối một hộp thư mỗi tài khoản, mã hóa/refresh token, cache email, cập nhật thay đổi và API đọc danh sách/chi tiết. Outlook, trích task, lịch và agent xử lý email là các phần phát triển tiếp theo. Frontend chưa được xây.
 
 ## Chạy bằng Docker
 
@@ -151,4 +151,4 @@ dotnet ef migrations add <Name> --project Project_AI.Infrastructure --startup-pr
 
 Giữ package lock files trong Git; Docker restore dùng `--locked-mode`. Khi triển khai thật, cần cấu hình HTTPS/cookie/origin, SendGrid và chạy migration trong bước triển khai. Giữ và sao lưu Data Protection keys cùng database để link xác nhận/reset, outbox và token Gmail còn giải mã được.
 
-Xem [kiến trúc và luồng auth](docs/architecture.md), [các commit refactor](docs/refactor-plan.md) và [ví dụ request](Project_AI/Project_AI.http). Kiểm thử được chạy bằng công cụ tạm rồi xóa theo yêu cầu của dự án; repo không lưu test project.
+Xem [ví dụ request](Project_AI/Project_AI.http). Thư mục docs giữ hướng dẫn riêng trên máy và không được Git theo dõi. Kiểm thử được chạy bằng công cụ tạm rồi xóa theo yêu cầu của dự án; repo không lưu test project.
