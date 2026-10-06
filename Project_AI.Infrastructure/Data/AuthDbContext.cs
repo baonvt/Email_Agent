@@ -18,6 +18,8 @@ public sealed class AuthDbContext : IdentityDbContext<ApplicationUser, IdentityR
     public DbSet<EmailOutboxMessage> EmailOutbox => Set<EmailOutboxMessage>();
     public DbSet<MailboxConnection> MailboxConnections => Set<MailboxConnection>();
     public DbSet<MailboxCredential> MailboxCredentials => Set<MailboxCredential>();
+    public DbSet<EmailMessage> EmailMessages => Set<EmailMessage>();
+    public DbSet<MailboxSyncState> MailboxSyncStates => Set<MailboxSyncState>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -58,6 +60,28 @@ public sealed class AuthDbContext : IdentityDbContext<ApplicationUser, IdentityR
         {
             b.HasKey(x => x.MailboxConnectionId);
             b.HasOne<MailboxConnection>().WithOne().HasForeignKey<MailboxCredential>(x => x.MailboxConnectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+        builder.Entity<EmailMessage>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.ProviderMessageId).HasMaxLength(128);
+            b.Property(x => x.ThreadId).HasMaxLength(128);
+            b.Property(x => x.Subject).HasMaxLength(2000);
+            b.Property(x => x.From).HasMaxLength(4000);
+            b.Property(x => x.To).HasMaxLength(8000);
+            b.Property(x => x.Snippet).HasMaxLength(2000);
+            b.HasIndex(x => new { x.MailboxConnectionId, x.ProviderMessageId }).IsUnique();
+            b.HasIndex(x => new { x.MailboxConnectionId, x.ReceivedAt, x.Id });
+            b.HasOne<MailboxConnection>().WithMany().HasForeignKey(x => x.MailboxConnectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+        builder.Entity<MailboxSyncState>(b =>
+        {
+            b.HasKey(x => x.MailboxConnectionId);
+            b.Property(x => x.HistoryId).HasMaxLength(32);
+            b.Property(x => x.LastErrorCode).HasMaxLength(64);
+            b.HasOne<MailboxConnection>().WithOne().HasForeignKey<MailboxSyncState>(x => x.MailboxConnectionId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }
