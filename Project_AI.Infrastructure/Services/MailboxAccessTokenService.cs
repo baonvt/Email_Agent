@@ -25,6 +25,25 @@ public sealed class MailboxAccessTokenService
         _timeProvider = timeProvider;
     }
 
+    public async Task RejectAccessTokenAsync(Guid userId, Guid mailboxId, string rejectedToken, CancellationToken cancellationToken)
+    {
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        var mailbox = (await _dbContext.MailboxConnections.FromSqlInterpolated(
+            $"SELECT * FROM \"MailboxConnections\" WHERE \"Id\" = {mailboxId} AND \"UserId\" = {userId} FOR UPDATE")
+            .ToListAsync(cancellationToken)).SingleOrDefault();
+        if (mailbox is null) return;
+        await _dbContext.Entry(mailbox).ReloadAsync(cancellationToken);
+        if (mailbox.Status != MailboxStatus.Connected) return;
+        var credential = await _dbContext.MailboxCredentials.SingleOrDefaultAsync(x => x.MailboxConnectionId == mailboxId, cancellationToken);
+        if (credential is not null) await _dbContext.Entry(credential).ReloadAsync(cancellationToken);
+        // A late 401 for an old access token must not revoke newly saved authorization.
+        if (credential is null || _tokenProtector.Unprotect(mailbox, credential.ProtectedPayload).AccessToken != rejectedToken) return;
+        mailbox.RequireReconnect(_timeProvider.GetUtcNow());
+        _dbContext.MailboxCredentials.Remove(credential);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
     public async Task<string> GetAccessTokenAsync(Guid userId, Guid mailboxId, CancellationToken cancellationToken,
         bool forceRefresh = false)
     {
@@ -37,6 +56,7 @@ public sealed class MailboxAccessTokenService
         {
             throw new AppException(ErrorCode.NotFound, "The mailbox was not found.");
         }
+        await _dbContext.Entry(mailbox).ReloadAsync(cancellationToken);
         if (mailbox.Status != MailboxStatus.Connected)
         {
             throw new AppException(ErrorCode.MailboxReconnectRequired, "Reconnect the mailbox first.");
@@ -44,6 +64,7 @@ public sealed class MailboxAccessTokenService
 
         var credential = await _dbContext.MailboxCredentials
             .SingleOrDefaultAsync(x => x.MailboxConnectionId == mailbox.Id, cancellationToken);
+        if (credential is not null) await _dbContext.Entry(credential).ReloadAsync(cancellationToken);
         try
         {
             if (credential is null)

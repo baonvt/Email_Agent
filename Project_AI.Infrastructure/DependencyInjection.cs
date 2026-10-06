@@ -126,6 +126,11 @@ public static class DependencyInjection
         services.AddSingleton<MailboxTokenProtector>();
         services.AddScoped<IMailboxConnectionStore, MailboxConnectionRepository>();
         services.AddScoped<MailboxAccessTokenService>();
+        services.AddHttpClient<IGmailMessageClient, GmailMessageClient>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(15);
+            client.MaxResponseContentBufferSize = 8 * 1024 * 1024;
+        });
         services.AddScoped<IMailboxOAuthRequestStore, MailboxOAuthRequestStore>();
     }
 }
