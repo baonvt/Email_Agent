@@ -34,7 +34,7 @@ public sealed class ReplySendRepository : IReplySendStore
         var context = await ReadLockedAsync(session.UserId, mailboxId, draftId, expectedVersion, cancellationToken);
         if (context.Draft.Status == ReplyDraftStatus.Sent) return context;
         context.Draft.StartSend(expectedVersion, _timeProvider.GetUtcNow());
-        await _data.SaveAsync(context.Draft, cancellationToken);
+        await _data.SaveAsync(context.Draft, expectedVersion, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return context;
     }
@@ -63,8 +63,9 @@ public sealed class ReplySendRepository : IReplySendStore
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
         var draft = await LockAttemptAsync(context, cancellationToken);
         if (draft is null) throw new AppException(ErrorCode.ReplySendUnknown, "The send record changed after provider acceptance.");
+        var originalVersion = draft.Version;
         draft.CompleteSend(result.MessageId, _timeProvider.GetUtcNow());
-        await _data.SaveAsync(draft, cancellationToken);
+        await _data.SaveAsync(draft, originalVersion, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return _data.Map(draft, context.Source);
     }
@@ -74,8 +75,9 @@ public sealed class ReplySendRepository : IReplySendStore
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
         var draft = await LockAttemptAsync(context, cancellationToken);
         if (draft is null) return;
+        var originalVersion = draft.Version;
         draft.FailSend(outcomeUnknown, errorCode, _timeProvider.GetUtcNow());
-        await _data.SaveAsync(draft, cancellationToken);
+        await _data.SaveAsync(draft, originalVersion, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
 

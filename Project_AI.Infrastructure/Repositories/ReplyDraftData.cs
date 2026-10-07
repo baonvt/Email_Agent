@@ -64,9 +64,11 @@ public sealed class ReplyDraftData
         if (version == Guid.Empty || draft.Version != version)
             throw new AppException(ErrorCode.DraftOutdated, "The draft changed. Reload it before continuing.");
     }
-    public async Task SaveAsync(ReplyDraft draft, CancellationToken cancellationToken)
+    public async Task SaveAsync(ReplyDraft draft, Guid originalVersion, CancellationToken cancellationToken)
     {
         _dbContext.Update(draft);
+        // The detached entity has already changed Version; EF must compare against the version read from DB.
+        _dbContext.Entry(draft).Property(x => x.Version).OriginalValue = originalVersion;
         await _dbContext.SaveChangesAsync(cancellationToken);
         _dbContext.Entry(draft).State = EntityState.Detached;
     }

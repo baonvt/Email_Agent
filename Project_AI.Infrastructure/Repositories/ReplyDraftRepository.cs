@@ -46,8 +46,13 @@ public sealed class ReplyDraftRepository : IReplyDraftStore
             draft = new ReplyDraft(emailId, now);
             _dbContext.ReplyDrafts.Add(draft);
         }
+        var originalVersion = draft.Version;
         draft.StartGeneration(now);
-        if (_dbContext.Entry(draft).State != EntityState.Added) _dbContext.Update(draft);
+        if (_dbContext.Entry(draft).State != EntityState.Added)
+        {
+            _dbContext.Update(draft);
+            _dbContext.Entry(draft).Property(x => x.Version).OriginalValue = originalVersion;
+        }
         await _dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         _dbContext.Entry(draft).State = EntityState.Detached;
@@ -66,10 +71,11 @@ public sealed class ReplyDraftRepository : IReplyDraftStore
             || draft.GenerationExpiresAt is null || draft.GenerationExpiresAt <= now
             || source.SourceVersion != context.Source.SourceVersion || source.MailboxVersion != context.Source.MailboxVersion)
             throw new AppException(ErrorCode.DraftOutdated, "The email, mailbox or generation request changed.");
+        var originalVersion = draft.Version;
         draft.CompleteGeneration(source.SourceVersion, source.MailboxVersion, source.MailboxEmail, thread.To,
             source.Email.Subject, output.BodyText, thread.InReplyTo, thread.References, source.Email.ThreadId,
             thread.Fingerprint, output.InputTruncated || thread.Truncated, output.Model, now);
-        await _data.SaveAsync(draft, cancellationToken);
+        await _data.SaveAsync(draft, originalVersion, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return _data.Map(draft, source);
     }
@@ -83,8 +89,9 @@ public sealed class ReplyDraftRepository : IReplyDraftStore
             .AsNoTracking().ToListAsync(cancellationToken);
         var draft = await _dbContext.ReplyDrafts.AsNoTracking().SingleOrDefaultAsync(x => x.Id == context.DraftId, cancellationToken);
         if (draft?.Status != ReplyDraftStatus.Generating || draft.GenerationId != context.GenerationId) return;
+        var originalVersion = draft.Version;
         draft.FailGeneration(errorCode, _timeProvider.GetUtcNow());
-        await _data.SaveAsync(draft, cancellationToken);
+        await _data.SaveAsync(draft, originalVersion, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
 
@@ -116,7 +123,7 @@ public sealed class ReplyDraftRepository : IReplyDraftStore
         if (string.IsNullOrWhiteSpace(body) || body.Length > 10000 || body.Contains('\0'))
             throw new AppException(ErrorCode.InvalidInput, "The reply body is invalid.");
         draft.Edit(body, _timeProvider.GetUtcNow());
-        await _data.SaveAsync(draft, cancellationToken);
+        await _data.SaveAsync(draft, expectedVersion, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return _data.Map(draft, await _data.SourceAsync(mailbox, draft.EmailMessageId, cancellationToken));
     }
