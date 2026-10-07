@@ -44,5 +44,12 @@ public enum ErrorCode
     AiThrottled,
     AiInvalidResponse,
     AnalysisInProgress,
-    AnalysisOutdated
+    AnalysisOutdated,
+    DraftInProgress,
+    DraftOutdated,
+    DraftNotEditable,
+    InvalidReplyTarget,
+    MailboxSendPermissionRequired,
+    ReplySendThrottled,
+    ReplySendUnknown
 }
