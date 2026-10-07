@@ -22,10 +22,31 @@ public sealed class AuthDbContext : IdentityDbContext<ApplicationUser, IdentityR
     public DbSet<MailboxSyncState> MailboxSyncStates => Set<MailboxSyncState>();
     public DbSet<EmailAnalysis> EmailAnalyses => Set<EmailAnalysis>();
     public DbSet<EmailAnalysisRequest> EmailAnalysisRequests => Set<EmailAnalysisRequest>();
+    public DbSet<ReplyDraft> ReplyDrafts => Set<ReplyDraft>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        builder.Entity<ReplyDraft>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => x.EmailMessageId).IsUnique();
+            b.Property(x => x.Version).IsConcurrencyToken();
+            b.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
+            b.Property(x => x.From).HasMaxLength(320);
+            b.Property(x => x.To).HasMaxLength(320);
+            b.Property(x => x.Subject).HasMaxLength(2000);
+            b.Property(x => x.BodyText).HasMaxLength(10000);
+            b.Property(x => x.InReplyTo).HasMaxLength(1000);
+            b.Property(x => x.ThreadId).HasMaxLength(128);
+            b.Property(x => x.ThreadFingerprint).HasMaxLength(64);
+            b.Property(x => x.Model).HasMaxLength(100);
+            b.Property(x => x.OutgoingMessageId).HasMaxLength(128);
+            b.Property(x => x.ProviderMessageId).HasMaxLength(128);
+            b.Property(x => x.LastErrorCode).HasMaxLength(64);
+            b.HasOne<EmailMessage>().WithOne().HasForeignKey<ReplyDraft>(x => x.EmailMessageId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
         builder.Entity<ApplicationUser>().Property(x => x.DisplayName).HasMaxLength(100);
         builder.Entity<ApplicationUser>().HasIndex(x => x.NormalizedEmail).IsUnique();
         builder.Entity<AuthSession>(b =>
