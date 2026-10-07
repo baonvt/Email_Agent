@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using MimeKit;
 using MimeKit.Utils;
@@ -22,6 +23,7 @@ internal static class GmailReplyFormatter
         var messages = thread.Messages.Select(GmailMessageParser.Parse).OrderBy(x => x.ReceivedAt)
             .ThenBy(x => x.MessageId, StringComparer.Ordinal).ToArray();
         var parsed = messages.Single(x => x.MessageId == anchor.Id);
+        if (Rfc2047.DecodeText(Encoding.UTF8.GetBytes(Header(anchor, "Subject"))).Length > 2000) throw InvalidTarget();
         var sender = Address(parsed.From);
         if (sender.Equals(source.MailboxEmail, StringComparison.OrdinalIgnoreCase)) throw InvalidTarget();
         var replyTo = Header(anchor, "Reply-To");
