@@ -69,7 +69,7 @@ public static class DependencyInjection
         var settings = configuration.GetSection(AuthWebOptions.Section).Get<AuthWebOptions>() ?? new();
         services.AddCors(options => options.AddPolicy("frontend", policy => policy
             .WithOrigins(settings.AllowedOrigins)
-            .WithMethods("GET", "POST")
+            .WithMethods("GET", "POST", "PUT", "DELETE")
             .WithHeaders("Content-Type", "Authorization", "X-InboxAgent-CSRF")
             .AllowCredentials()));
     }

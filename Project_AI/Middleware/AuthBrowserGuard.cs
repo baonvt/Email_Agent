@@ -27,7 +27,8 @@ public sealed class AuthBrowserGuard
         context.Response.Headers.CacheControl = "no-store";
         context.Response.Headers.Pragma = "no-cache";
         context.Response.Headers["Referrer-Policy"] = "no-referrer";
-        if (HttpMethods.IsPost(context.Request.Method))
+        if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method)
+            && !HttpMethods.IsOptions(context.Request.Method))
         {
             var origin = context.Request.Headers.Origin.ToString();
             // Exact origin matching and a custom header force a CORS preflight in browsers.
