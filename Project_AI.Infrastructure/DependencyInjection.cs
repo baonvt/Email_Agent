@@ -123,7 +123,8 @@ public static class DependencyInjection
                 "Configure a valid Gemini:ApiKey and Gemini:Model when Gemini is enabled.")
             .ValidateOnStart();
         services.AddScoped<IEmailAnalysisStore, EmailAnalysisRepository>();
-        services.AddHttpClient<IEmailAnalyzer, GeminiEmailAnalyzer>(client =>
+        services.AddScoped<IEmailAnalyzer, GeminiEmailAnalyzer>();
+        services.AddHttpClient<GeminiJsonClient>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(45);
             client.MaxResponseContentBufferSize = 256 * 1024;
