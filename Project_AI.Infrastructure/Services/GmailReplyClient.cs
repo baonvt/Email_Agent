@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.WebUtilities;
+using MimeKit;
 using Project_AI.Application.Common.Enums;
 using Project_AI.Application.Common.Exceptions;
 using Project_AI.Application.DTOs.Replies;
@@ -32,7 +33,9 @@ public sealed class GmailReplyClient : IGmailReplyClient
                 cancellationToken, requireSendPermission: true, expectedMailboxVersion: source.MailboxVersion);
             using var message = GmailReplyFormatter.Create(context);
             using var buffer = new MemoryStream();
-            await message.WriteToAsync(buffer, cancellationToken);
+            var format = FormatOptions.Default.Clone();
+            format.NewLineFormat = NewLineFormat.Dos;
+            await message.WriteToAsync(format, buffer, cancellationToken);
             raw = WebEncoders.Base64UrlEncode(buffer.ToArray());
             cancellationToken.ThrowIfCancellationRequested();
         }
