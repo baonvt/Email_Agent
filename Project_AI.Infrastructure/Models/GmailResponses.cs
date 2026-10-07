@@ -14,3 +14,4 @@ internal sealed record GmailPart(string? MimeType, string? Filename, GmailHeader
     GmailBody? Body, GmailPart[]? Parts);
 internal sealed record GmailHeader(string Name, string Value);
 internal sealed record GmailBody(string? Data, string? AttachmentId);
+internal sealed record GmailThreadResult(string Id, GmailMessageResult[]? Messages);

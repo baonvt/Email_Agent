@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using Project_AI.Application.Common.Enums;
 using Project_AI.Application.Common.Exceptions;
 using Project_AI.Application.DTOs.Emails;
+using Project_AI.Application.DTOs.Replies;
 using Project_AI.Application.Interfaces;
 using Project_AI.Infrastructure.Models;
 using Project_AI.Infrastructure.Options;
@@ -80,6 +81,18 @@ public sealed class GmailMessageClient : IGmailMessageClient
                 ids.Add(ValidMessageId(change.Message.Id));
         }
         return new GmailHistoryPage(ids.ToArray(), ValidHistory(page.HistoryId), ValidPageToken(page.NextPageToken));
+    }
+
+    public async Task<ReplyThread> GetReplyThreadAsync(ReplySource source, CancellationToken cancellationToken)
+    {
+        var path = "threads/" + Uri.EscapeDataString(ValidMessageId(source.Email.ThreadId)) + "?format=full";
+        var thread = await GetAsync<GmailThreadResult>(source.UserId, source.MailboxId, path, true, cancellationToken);
+        if (thread is null) throw new AppException(ErrorCode.DraftOutdated, "The conversation was removed.");
+        try { return GmailReplyFormatter.ParseThread(thread, source); }
+        catch (Exception exception) when (exception is FormatException or ArgumentException or NotSupportedException)
+        {
+            throw Unavailable();
+        }
     }
 
     private async Task<T?> GetAsync<T>(Guid userId, Guid mailboxId, string path, bool missingMessageAllowed,
