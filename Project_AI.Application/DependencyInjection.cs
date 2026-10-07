@@ -12,6 +12,8 @@ public static class DependencyInjection
         services.AddScoped<IMailboxConnectionService, MailboxConnectionService>();
         services.AddScoped<IEmailSyncService, EmailSyncService>();
         services.AddScoped<IEmailAnalysisService, EmailAnalysisService>();
+        services.AddScoped<IReplyDraftService, ReplyDraftService>();
+        services.AddScoped<IReplySendService, ReplySendService>();
         return services;
     }
 }
