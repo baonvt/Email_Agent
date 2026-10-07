@@ -9,6 +9,8 @@
 @ResetToken = paste-token-from-password-reset-link-here
 @MailboxId = 00000000-0000-0000-0000-000000000000
 @EmailId = 00000000-0000-0000-0000-000000000000
+@DraftId = 00000000-0000-0000-0000-000000000000
+@DraftVersion = 00000000-0000-0000-0000-000000000000
 
 GET {{Project_AI_HostAddress}}/health/ready
 
@@ -132,6 +134,60 @@ Authorization: Bearer {{AccessToken}}
 
 ### Gọi Gemini lại dù đang có kết quả; có thể phát sinh chi phí API.
 POST {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/emails/{{EmailId}}/analysis?force=true
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Authorization: Bearer {{AccessToken}}
+
+### Tạo nháp từ hội thoại Gmail; nếu nháp còn hiệu lực thì dùng lại.
+POST {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/emails/{{EmailId}}/draft
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Authorization: Bearer {{AccessToken}}
+Content-Type: application/json
+
+{}
+
+### Nháp local của email, tối đa một nháp.
+GET {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/emails/{{EmailId}}/drafts
+Authorization: Bearer {{AccessToken}}
+
+### Lấy DraftId/version từ response; xem người nhận và body trước khi duyệt.
+GET {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/drafts?page=1&pageSize=20
+Authorization: Bearer {{AccessToken}}
+
+### Chi tiết nháp và kết quả gửi.
+GET {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/drafts/{{DraftId}}
+Authorization: Bearer {{AccessToken}}
+
+### Sửa body, rồi cập nhật DraftVersion từ response mới.
+PUT {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/drafts/{{DraftId}}
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Authorization: Bearer {{AccessToken}}
+Content-Type: application/json
+
+{"expectedVersion":"{{DraftVersion}}","bodyText":"Cảm ơn bạn. Tôi cần thêm thông tin để xác nhận."}
+
+### Tạo lại bằng AI; thay body đã sửa, cần version hiện tại.
+POST {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/emails/{{EmailId}}/draft
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Authorization: Bearer {{AccessToken}}
+Content-Type: application/json
+
+{"force":true,"expectedVersion":"{{DraftVersion}}"}
+
+### GỬI THẬT qua Gmail khi người dùng duyệt; cần gmail.send và version vừa xem.
+POST {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/drafts/{{DraftId}}/send
+Origin: {{FrontendOrigin}}
+X-InboxAgent-CSRF: 1
+Authorization: Bearer {{AccessToken}}
+Content-Type: application/json
+
+{"expectedVersion":"{{DraftVersion}}","confirmSend":true}
+
+### Chỉ xóa nháp chưa gửi; sending/sent/send_unknown bị khóa.
+DELETE {{Project_AI_HostAddress}}/api/mailboxes/{{MailboxId}}/drafts/{{DraftId}}?expectedVersion={{DraftVersion}}
 Origin: {{FrontendOrigin}}
 X-InboxAgent-CSRF: 1
 Authorization: Bearer {{AccessToken}}

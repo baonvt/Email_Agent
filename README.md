@@ -2,7 +2,7 @@
 
 Dự án cá nhân dùng ASP.NET Core 10 và Clean Architecture với bốn tầng. Hiện đã có đăng ký, đăng nhập, xác nhận email, đặt lại mật khẩu và quản lý phiên bằng PostgreSQL, JWT, Redis, SendGrid.
 
-Đã có Gmail OAuth, đồng bộ Inbox và Gemini phân loại/tóm tắt email tiếng Việt. Kết nối một hộp thư mỗi tài khoản, mã hóa/refresh token, cache email, cập nhật thay đổi và API đọc danh sách/chi tiết. Outlook, soạn nháp, trích task và lịch là các phần phát triển tiếp theo. Frontend chưa được xây.
+Đã có Gmail OAuth, đồng bộ Inbox, Gemini phân loại/tóm tắt và soạn nháp trả lời theo hội thoại. Người dùng xem, sửa và duyệt đúng phiên bản nháp trước khi gửi Gmail. Outlook, trích task và lịch là các phần phát triển tiếp theo. Frontend chưa được xây.
 
 ## Chạy bằng Docker
 
@@ -72,7 +72,7 @@ Link trỏ đến frontend `/auth/confirm-email` hoặc `/auth/reset-password`. 
 
 ## Gọi API auth
 
-Mọi POST dưới `/api/auth` và `/api/mailboxes` cần Origin đúng allowlist và header CSRF. Postman/file `.http` khai báo:
+Mọi POST, PUT và DELETE dưới `/api/auth` và `/api/mailboxes` cần Origin đúng allowlist và header CSRF. Postman/file `.http` khai báo:
 
 ```http
 Origin: http://localhost:3000
@@ -137,6 +137,31 @@ Kết quả gồm summary tiếng Việt, category (`work`, `finance`, `personal
 Gemini mặc định tắt. POST gửi nội dung email đến Google khi cần phân tích, có thể tính phí theo tài khoản API. Không có phân tích tự động hoặc tự gửi email. Input giới hạn mặc định 12000 ký tự; `inputTruncated` báo phần nội dung bị cắt. Thay đổi nội dung làm kết quả hết hiệu lực; chỉ đổi nhãn không gọi AI lại. Kết quả JSON được kiểm tra trước khi lưu, nhưng bạn vẫn cần xem lại nhận định AI.
 
 Các lỗi riêng: 409 analysis đang chạy/nội dung đã thay đổi, 429 Gemini giới hạn request, 502 JSON không hợp lệ hoặc phản hồi không hoàn tất, 503 chưa cấu hình/Gemini không sẵn sàng. Không có retry tự động cho request AI. Xem ví dụ trong file `.http`.
+
+## Nháp trả lời và duyệt gửi Gmail
+
+Google OAuth hiện yêu cầu `gmail.readonly` và `gmail.send`. Thêm `https://www.googleapis.com/auth/gmail.send` ở Google Auth Platform → Data Access rồi thực hiện connect/cấp quyền lại trên cùng tài khoản Gmail, trước khi tạo nháp. Không cần disconnect trước: disconnect xóa cache email và nháp local. Mailbox chỉ có quyền đọc vẫn sync được, nhưng gửi trả `mailbox_send_permission_required`. Xem [quyền của messages.send](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/send).
+
+| Method | Endpoint | Đầu vào |
+|---|---|---|
+| POST | `/api/mailboxes/{mailboxId}/emails/{emailId}/draft` | `{}` để tạo hoặc dùng nháp đã có |
+| POST | Cùng endpoint | `{"force":true,"expectedVersion":"<version hiện tại>"}` để tạo lại |
+| GET | `/api/mailboxes/{mailboxId}/emails/{emailId}/drafts` | Danh sách, tối đa một nháp mỗi email |
+| GET | `/api/mailboxes/{mailboxId}/drafts?page=1&pageSize=20` | Nháp và lịch sử gửi trong mailbox; pageSize tối đa 50 |
+| GET | `/api/mailboxes/{mailboxId}/drafts/{draftId}` | Nội dung, người nhận, version và trạng thái |
+| PUT | Cùng endpoint | `{"expectedVersion":"<version>","bodyText":"<nội dung đã sửa>"}` |
+| DELETE | Cùng endpoint, thêm `?expectedVersion=<version>` | Xóa nháp chưa gửi |
+| POST | `/api/mailboxes/{mailboxId}/drafts/{draftId}/send` | `{"expectedVersion":"<version đã xem>","confirmSend":true}` |
+
+Sync Inbox trước, tạo nháp, xem `from`, `to`, `subject`, `bodyText`, rồi sửa nếu cần và dùng **version mới nhất** khi duyệt. Body tối đa 10000 ký tự, gửi plain text. Subject và địa chỉ nhận chỉ đọc: backend chọn một địa chỉ Reply-To hoặc From của email gốc, không reply-all/CC/BCC/attachment. AI chỉ tạo body, mặc định cùng ngôn ngữ email và giọng lịch sự; có thể để `[placeholder]` nếu thiếu thông tin. Nháp lưu PostgreSQL, không tạo trong mục Drafts của Gmail.
+
+Backend đọc hội thoại Gmail, lấy tối đa 20 email cho prompt và giới hạn ký tự theo `Gemini:MaxInputCharacters`. `inputTruncated` báo thiếu nội dung/ngữ cảnh. Hội thoại trên 200 message hoặc vượt giới hạn HTTP 8 MiB bị từ chối. Chưa hỗ trợ email do chính chủ gửi hoặc header/địa chỉ không hợp lệ. Khi sync đổi nội dung, nháp có `isOutdated`; re-consent cũng yêu cầu tạo nháp lại. Trước khi gửi, backend đọc lại hội thoại và chặn nếu nội dung/người nhận thay đổi. Thay đổi trên Gmail sau lần kiểm tra này vẫn có thể xảy ra vì database và Gmail không có transaction chung.
+
+Các trạng thái: `generating`, `draft`, `generation_failed`, `sending`, `sent`, `send_unknown`. Mỗi lần sửa/tạo lại/chuyển trạng thái đổi version; request duyệt cũ trả 409. Generating giữ lease hai phút; lỗi tạo lại giữ body cũ. `sending` quá hai phút hiển thị `send_unknown`, vẫn bị khóa gửi. Response có providerMessageId khi Gmail đã xác nhận, outgoingMessageId để đối chiếu thư đã gửi.
+
+Lặp lại yêu cầu gửi cùng phiên bản đã duyệt thành công trả kết quả lưu, không gọi Gmail lần nữa. Gemini/Gmail send không tự retry. Gmail từ chối rõ ràng (400/401/403/429) đưa nháp về `draft` với version mới để duyệt lại. Timeout, mất mạng, 5xx, phản hồi thành công không đọc được hoặc lỗi lưu sau gửi đều giữ kết quả **chưa rõ**: trả 503 `reply_send_unknown`, chặn gửi/sửa/xóa. Kiểm tra Gmail Sent; có thể tìm `rfc822msgid:<outgoingMessageId>`. Message-ID giúp đối chiếu, không phải khóa chống trùng của Gmail. Chưa có API tự khôi phục/gửi lại nháp chưa rõ kết quả.
+
+Nếu email bị loại khỏi Inbox qua sync, nháp vẫn được giữ với `isOutdated:true` và không thể gửi khi thiếu nguồn. Disconnect xóa nháp chưa gửi và cache email, giữ bản ghi `sending`, `sent`, `send_unknown` để đối chiếu; GET nháp/lịch sử gửi vẫn đọc được khi mailbox chưa kết nối. Gmail Sent là nơi kiểm tra delivery thực tế. Logout/reset/revoke trong lúc chuẩn bị gửi được kiểm tra lại trước khi lưu approval. Chỉ endpoint có `confirmSend:true` gửi thư; AI chưa có công cụ gửi.
 
 ## Response lỗi
 
