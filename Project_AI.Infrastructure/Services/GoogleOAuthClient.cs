@@ -17,6 +17,7 @@ namespace Project_AI.Infrastructure.Services;
 public sealed class GoogleOAuthClient : IGoogleOAuthClient
 {
     public const string ReadOnlyScope = "https://www.googleapis.com/auth/gmail.readonly";
+    public const string SendScope = "https://www.googleapis.com/auth/gmail.send";
     private const string TokenEndpoint = "https://oauth2.googleapis.com/token";
     private readonly HttpClient _httpClient;
     private readonly IOptions<GmailOptions> _options;
@@ -36,7 +37,7 @@ public sealed class GoogleOAuthClient : IGoogleOAuthClient
             new Dictionary<string, string?>
             {
                 ["client_id"] = settings.ClientId, ["redirect_uri"] = settings.RedirectUri,
-                ["response_type"] = "code", ["scope"] = "openid email " + ReadOnlyScope,
+                ["response_type"] = "code", ["scope"] = "openid email " + ReadOnlyScope + " " + SendScope,
                 ["access_type"] = "offline", ["prompt"] = "consent select_account",
                 ["state"] = state, ["code_challenge"] = codeChallenge, ["code_challenge_method"] = "S256"
             });

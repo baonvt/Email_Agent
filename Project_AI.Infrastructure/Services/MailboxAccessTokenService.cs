@@ -45,7 +45,7 @@ public sealed class MailboxAccessTokenService
     }
 
     public async Task<string> GetAccessTokenAsync(Guid userId, Guid mailboxId, CancellationToken cancellationToken,
-        bool forceRefresh = false)
+        bool forceRefresh = false, bool requireSendPermission = false, Guid? expectedMailboxVersion = null)
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
         // Serialize refresh with reconnect/disconnect across API instances; the provider request has a timeout.
@@ -57,6 +57,8 @@ public sealed class MailboxAccessTokenService
             throw new AppException(ErrorCode.NotFound, "The mailbox was not found.");
         }
         await _dbContext.Entry(mailbox).ReloadAsync(cancellationToken);
+        if (expectedMailboxVersion is Guid expected && mailbox.Version != expected)
+            throw new AppException(ErrorCode.DraftOutdated, "The mailbox changed before sending.");
         if (mailbox.Status != MailboxStatus.Connected)
         {
             throw new AppException(ErrorCode.MailboxReconnectRequired, "Reconnect the mailbox first.");
@@ -79,6 +81,7 @@ public sealed class MailboxAccessTokenService
             }
             if (!forceRefresh && tokens.AccessTokenExpiresAt > now + RefreshMargin)
             {
+                CheckSendPermission(tokens.Scope, requireSendPermission);
                 return tokens.AccessToken;
             }
 
@@ -101,6 +104,7 @@ public sealed class MailboxAccessTokenService
             credential.RefreshTokenExpiresAt = refreshed.RefreshTokenExpiresAt;
             await _dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            CheckSendPermission(refreshed.Scope, requireSendPermission);
             return refreshed.AccessToken;
         }
         catch (AppException exception) when (exception.Code == ErrorCode.MailboxReconnectRequired)
@@ -114,5 +118,11 @@ public sealed class MailboxAccessTokenService
             await transaction.CommitAsync(cancellationToken);
             throw;
         }
+    }
+
+    private static void CheckSendPermission(string scope, bool required)
+    {
+        if (required && !scope.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(GoogleOAuthClient.SendScope))
+            throw new AppException(ErrorCode.MailboxSendPermissionRequired, "Grant gmail.send before sending replies.");
     }
 }
