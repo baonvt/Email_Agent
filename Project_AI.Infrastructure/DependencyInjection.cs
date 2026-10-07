@@ -29,6 +29,7 @@ public static class DependencyInjection
         AddEmail(services);
         AddMailboxes(services, configuration, environment);
         AddEmailAnalysis(services, configuration);
+        AddReplies(services);
         services.AddHealthChecks().AddCheck<DependenciesHealthCheck>("auth_dependencies");
         return services;
     }
@@ -131,6 +132,19 @@ public static class DependencyInjection
         }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
     }
 
+    private static void AddReplies(IServiceCollection services)
+    {
+        services.AddScoped<ReplyDraftData>();
+        services.AddScoped<IReplyDraftStore, ReplyDraftRepository>();
+        services.AddScoped<IReplySendStore, ReplySendRepository>();
+        services.AddScoped<IReplyGenerator, GeminiReplyGenerator>();
+        services.AddHttpClient<IGmailReplyClient, GmailReplyClient>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(20);
+            client.MaxResponseContentBufferSize = 256 * 1024;
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+    }
+
     private static void AddMailboxes(IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
         services.AddOptions<GmailOptions>().Bind(configuration.GetSection(GmailOptions.Section))
@@ -145,7 +159,8 @@ public static class DependencyInjection
         services.AddScoped<MailboxAccessTokenService>();
         services.AddScoped<IEmailSyncStore, EmailSyncRepository>();
         services.AddScoped<IEmailQueryStore, EmailQueryRepository>();
-        services.AddHttpClient<IGmailMessageClient, GmailMessageClient>(client =>
+        services.AddScoped<IGmailMessageClient>(provider => provider.GetRequiredService<GmailMessageClient>());
+        services.AddHttpClient<GmailMessageClient>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(15);
             client.MaxResponseContentBufferSize = 8 * 1024 * 1024;
