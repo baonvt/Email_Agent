@@ -128,6 +128,10 @@ public sealed class MailboxConnectionRepository : IMailboxConnectionStore
 
     private async Task ClearEmailDataAsync(Guid mailboxId, CancellationToken cancellationToken)
     {
+        // Retain send receipts/uncertain attempts across disconnect, while removing unsent content.
+        await _dbContext.ReplyDrafts.Where(x => x.MailboxConnectionId == mailboxId
+            && (x.Status == ReplyDraftStatus.Draft || x.Status == ReplyDraftStatus.Generating
+                || x.Status == ReplyDraftStatus.GenerationFailed)).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.EmailMessages.Where(x => x.MailboxConnectionId == mailboxId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.MailboxSyncStates.Where(x => x.MailboxConnectionId == mailboxId).ExecuteDeleteAsync(cancellationToken);
     }

@@ -26,8 +26,8 @@ public sealed class ReplySendService : IReplySendService
             return await _drafts.GetAsync(session.UserId, mailboxId, draftId, cancellationToken);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(TimeSpan.FromSeconds(60));
-        var thread = await _gmail.GetThreadAsync(preview.Source, deadline.Token);
-        ReplyContentGuard.EnsureCurrentSource(preview.Source, thread);
+        var thread = await _gmail.GetThreadAsync(preview.Source!, deadline.Token);
+        ReplyContentGuard.EnsureCurrentSource(preview.Source!, thread);
         if (thread.Fingerprint != preview.Draft.ThreadFingerprint || thread.To != preview.Draft.To
             || thread.InReplyTo != preview.Draft.InReplyTo)
             throw new AppException(ErrorCode.DraftOutdated, "The conversation or reply target changed. Regenerate and review.");

@@ -20,13 +20,13 @@ public sealed class ReplyDraftData
         _dbContext = dbContext; _timeProvider = timeProvider;
     }
 
-    public async Task<MailboxConnection> LockMailboxAsync(Guid userId, Guid mailboxId, CancellationToken cancellationToken)
+    public async Task<MailboxConnection> LockMailboxAsync(Guid userId, Guid mailboxId, CancellationToken cancellationToken, bool requireConnected = true)
     {
         var mailbox = (await _dbContext.MailboxConnections.FromSqlInterpolated(
             $"SELECT * FROM \"MailboxConnections\" WHERE \"Id\" = {mailboxId} AND \"UserId\" = {userId} FOR UPDATE")
             .AsNoTracking().ToListAsync(cancellationToken)).SingleOrDefault()
             ?? throw new AppException(ErrorCode.NotFound, "The mailbox was not found.");
-        if (mailbox.Status != MailboxStatus.Connected)
+        if (requireConnected && mailbox.Status != MailboxStatus.Connected)
             throw new AppException(ErrorCode.MailboxReconnectRequired, "Reconnect the mailbox first.");
         return mailbox;
     }
@@ -42,23 +42,23 @@ public sealed class ReplyDraftData
     }
 
     public async Task<ReplyDraft> DraftAsync(MailboxConnection mailbox, Guid draftId, CancellationToken cancellationToken) =>
-        await (from draft in _dbContext.ReplyDrafts.AsNoTracking()
-               join email in _dbContext.EmailMessages on draft.EmailMessageId equals email.Id
-               where draft.Id == draftId && email.MailboxConnectionId == mailbox.Id
-               select draft).SingleOrDefaultAsync(cancellationToken)
+        await _dbContext.ReplyDrafts.AsNoTracking().SingleOrDefaultAsync(
+            x => x.Id == draftId && x.MailboxConnectionId == mailbox.Id, cancellationToken)
         ?? throw new AppException(ErrorCode.NotFound, "The draft was not found.");
 
-    public ReplyDraftResponse Map(ReplyDraft draft, ReplySource source)
+    public ReplyDraftResponse Map(ReplyDraft draft, ReplySource? source) => Map(draft, IsOutdated(draft, source));
+
+    public ReplyDraftResponse Map(ReplyDraft draft, bool isOutdated)
     {
         var status = draft.Status == ReplyDraftStatus.Sending && draft.SendStartedAt <= _timeProvider.GetUtcNow().AddMinutes(-2)
             ? "send_unknown" : JsonNamingPolicy.SnakeCaseLower.ConvertName(draft.Status.ToString());
-        return new ReplyDraftResponse(draft.Id, draft.EmailMessageId, draft.Version, status, draft.From, draft.To,
-            draft.Subject, draft.BodyText, IsOutdated(draft, source), draft.InputTruncated, draft.Model, draft.ProviderMessageId,
+        return new ReplyDraftResponse(draft.Id, draft.SourceEmailId, draft.Version, status, draft.From, draft.To,
+            draft.Subject, draft.BodyText, isOutdated, draft.InputTruncated, draft.Model, draft.ProviderMessageId,
             draft.OutgoingMessageId, draft.CreatedAt, draft.UpdatedAt, draft.SentAt, draft.LastErrorCode);
     }
 
-    public static bool IsOutdated(ReplyDraft draft, ReplySource source) =>
-        draft.SourceVersion != source.SourceVersion || draft.MailboxVersion != source.MailboxVersion;
+    public static bool IsOutdated(ReplyDraft draft, ReplySource? source) => source is null
+        || draft.SourceVersion != source.SourceVersion || draft.MailboxVersion != source.MailboxVersion;
     public static void CheckVersion(ReplyDraft draft, Guid version)
     {
         if (version == Guid.Empty || draft.Version != version)

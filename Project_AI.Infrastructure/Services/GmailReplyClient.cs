@@ -27,8 +27,9 @@ public sealed class GmailReplyClient : IGmailReplyClient
         string token, raw;
         try
         {
-            token = await _tokens.GetAccessTokenAsync(context.Source.UserId, context.Source.MailboxId,
-                cancellationToken, requireSendPermission: true, expectedMailboxVersion: context.Source.MailboxVersion);
+            var source = context.Source ?? throw new AppException(ErrorCode.DraftNotEditable, "The reply has no active source.");
+            token = await _tokens.GetAccessTokenAsync(source.UserId, source.MailboxId,
+                cancellationToken, requireSendPermission: true, expectedMailboxVersion: source.MailboxVersion);
             using var message = GmailReplyFormatter.Create(context);
             using var buffer = new MemoryStream();
             await message.WriteToAsync(buffer, cancellationToken);

@@ -9,6 +9,7 @@ public interface IReplyDraftStore
     Task FailGenerationAsync(ReplyGenerationContext context, string errorCode, CancellationToken cancellationToken);
     Task<ReplyDraftResponse> GetAsync(Guid userId, Guid mailboxId, Guid draftId, CancellationToken cancellationToken);
     Task<IReadOnlyList<ReplyDraftResponse>> ListAsync(Guid userId, Guid mailboxId, Guid emailId, CancellationToken cancellationToken);
+    Task<ReplyDraftPage> ListMailboxAsync(Guid userId, Guid mailboxId, int page, int pageSize, CancellationToken cancellationToken);
     Task<ReplyDraftResponse> EditAsync(Guid userId, Guid mailboxId, Guid draftId, Guid expectedVersion, string body, CancellationToken cancellationToken);
     Task DeleteAsync(Guid userId, Guid mailboxId, Guid draftId, Guid expectedVersion, CancellationToken cancellationToken);
 }

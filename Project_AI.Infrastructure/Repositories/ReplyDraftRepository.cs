@@ -25,7 +25,7 @@ public sealed class ReplyDraftRepository : IReplyDraftStore
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
         var mailbox = await _data.LockMailboxAsync(userId, mailboxId, cancellationToken);
         var source = await _data.SourceAsync(mailbox, emailId, cancellationToken);
-        var draft = await _dbContext.ReplyDrafts.AsNoTracking().SingleOrDefaultAsync(x => x.EmailMessageId == emailId, cancellationToken);
+        var draft = await _dbContext.ReplyDrafts.AsNoTracking().SingleOrDefaultAsync(x => x.SourceEmailId == emailId, cancellationToken);
         var now = _timeProvider.GetUtcNow();
         if (draft is not null)
         {
@@ -43,7 +43,7 @@ public sealed class ReplyDraftRepository : IReplyDraftStore
         else
         {
             if (force) throw new AppException(ErrorCode.InvalidInput, "There is no draft to regenerate.");
-            draft = new ReplyDraft(emailId, now);
+            draft = new ReplyDraft(mailboxId, emailId, now);
             _dbContext.ReplyDrafts.Add(draft);
         }
         var originalVersion = draft.Version;
@@ -65,7 +65,7 @@ public sealed class ReplyDraftRepository : IReplyDraftStore
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
         var mailbox = await _data.LockMailboxAsync(context.Source.UserId, context.Source.MailboxId, cancellationToken);
         var draft = await _data.DraftAsync(mailbox, context.DraftId, cancellationToken);
-        var source = await _data.SourceAsync(mailbox, draft.EmailMessageId, cancellationToken);
+        var source = await _data.SourceAsync(mailbox, draft.SourceEmailId, cancellationToken);
         var now = _timeProvider.GetUtcNow();
         if (draft.Status != ReplyDraftStatus.Generating || draft.GenerationId != context.GenerationId
             || draft.GenerationExpiresAt is null || draft.GenerationExpiresAt <= now
@@ -98,9 +98,10 @@ public sealed class ReplyDraftRepository : IReplyDraftStore
     public async Task<ReplyDraftResponse> GetAsync(Guid userId, Guid mailboxId, Guid draftId, CancellationToken cancellationToken)
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
-        var mailbox = await _data.LockMailboxAsync(userId, mailboxId, cancellationToken);
+        var mailbox = await _data.LockMailboxAsync(userId, mailboxId, cancellationToken, requireConnected: false);
         var draft = await _data.DraftAsync(mailbox, draftId, cancellationToken);
-        return _data.Map(draft, await _data.SourceAsync(mailbox, draft.EmailMessageId, cancellationToken));
+        var source = draft.EmailMessageId is null ? null : await _data.SourceAsync(mailbox, draft.SourceEmailId, cancellationToken);
+        return _data.Map(draft, source);
     }
 
     public async Task<IReadOnlyList<ReplyDraftResponse>> ListAsync(Guid userId, Guid mailboxId, Guid emailId, CancellationToken cancellationToken)
@@ -108,8 +109,26 @@ public sealed class ReplyDraftRepository : IReplyDraftStore
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
         var mailbox = await _data.LockMailboxAsync(userId, mailboxId, cancellationToken);
         var source = await _data.SourceAsync(mailbox, emailId, cancellationToken);
-        var draft = await _dbContext.ReplyDrafts.AsNoTracking().SingleOrDefaultAsync(x => x.EmailMessageId == emailId, cancellationToken);
+        var draft = await _dbContext.ReplyDrafts.AsNoTracking().SingleOrDefaultAsync(x => x.SourceEmailId == emailId, cancellationToken);
         return draft is null ? [] : [_data.Map(draft, source)];
+    }
+
+    public async Task<ReplyDraftPage> ListMailboxAsync(Guid userId, Guid mailboxId, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        if (page is < 1 or > 100000 || pageSize is < 1 or > 50)
+            throw new AppException(ErrorCode.InvalidInput, "Draft page must be positive and pageSize between 1 and 50.");
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        var mailbox = await _data.LockMailboxAsync(userId, mailboxId, cancellationToken, requireConnected: false);
+        var drafts = _dbContext.ReplyDrafts.AsNoTracking().Where(x => x.MailboxConnectionId == mailboxId);
+        var total = await drafts.CountAsync(cancellationToken);
+        var rows = await (from draft in drafts
+                          join email in _dbContext.EmailMessages on draft.EmailMessageId equals (Guid?)email.Id into emails
+                          from email in emails.DefaultIfEmpty()
+                          orderby draft.CreatedAt descending, draft.Id
+                          select new { Draft = draft, ContentVersion = (Guid?)email.ContentVersion })
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
+        return new ReplyDraftPage(rows.Select(x => _data.Map(x.Draft,
+            x.ContentVersion != x.Draft.SourceVersion || x.Draft.MailboxVersion != mailbox.Version)).ToArray(), page, pageSize, total);
     }
 
     public async Task<ReplyDraftResponse> EditAsync(Guid userId, Guid mailboxId, Guid draftId, Guid expectedVersion,
@@ -120,12 +139,13 @@ public sealed class ReplyDraftRepository : IReplyDraftStore
         var draft = await _data.DraftAsync(mailbox, draftId, cancellationToken);
         ReplyDraftData.CheckVersion(draft, expectedVersion);
         if (draft.Status != ReplyDraftStatus.Draft) throw NotEditable();
+        if (draft.EmailMessageId is null) throw new AppException(ErrorCode.DraftOutdated, "The source email was removed.");
         if (string.IsNullOrWhiteSpace(body) || body.Length > 10000 || body.Contains('\0'))
             throw new AppException(ErrorCode.InvalidInput, "The reply body is invalid.");
         draft.Edit(body, _timeProvider.GetUtcNow());
         await _data.SaveAsync(draft, expectedVersion, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return _data.Map(draft, await _data.SourceAsync(mailbox, draft.EmailMessageId, cancellationToken));
+        return _data.Map(draft, await _data.SourceAsync(mailbox, draft.SourceEmailId, cancellationToken));
     }
 
     public async Task DeleteAsync(Guid userId, Guid mailboxId, Guid draftId, Guid expectedVersion, CancellationToken cancellationToken)

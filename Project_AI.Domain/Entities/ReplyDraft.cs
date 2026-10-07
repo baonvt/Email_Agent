@@ -5,7 +5,9 @@ namespace Project_AI.Domain.Entities;
 public sealed class ReplyDraft
 {
     public Guid Id { get; private set; }
-    public Guid EmailMessageId { get; private set; }
+    public Guid MailboxConnectionId { get; private set; }
+    public Guid SourceEmailId { get; private set; }
+    public Guid? EmailMessageId { get; private set; }
     public Guid Version { get; private set; }
     public Guid SourceVersion { get; private set; }
     public Guid MailboxVersion { get; private set; }
@@ -33,9 +35,9 @@ public sealed class ReplyDraft
     public string? LastErrorCode { get; private set; }
 
     private ReplyDraft() { }
-    public ReplyDraft(Guid emailMessageId, DateTimeOffset now)
+    public ReplyDraft(Guid mailboxId, Guid emailMessageId, DateTimeOffset now)
     {
-        Id = Guid.NewGuid(); EmailMessageId = emailMessageId;
+        Id = Guid.NewGuid(); MailboxConnectionId = mailboxId; SourceEmailId = emailMessageId; EmailMessageId = emailMessageId;
         Version = Guid.NewGuid(); CreatedAt = now; UpdatedAt = now;
         Status = ReplyDraftStatus.GenerationFailed;
     }

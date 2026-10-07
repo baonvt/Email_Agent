@@ -42,17 +42,21 @@ public sealed class ReplySendRepository : IReplySendStore
     private async Task<ReplySendContext> ReadLockedAsync(Guid userId, Guid mailboxId, Guid draftId,
         Guid expectedVersion, CancellationToken cancellationToken)
     {
-        var mailbox = await _data.LockMailboxAsync(userId, mailboxId, cancellationToken);
+        var mailbox = await _data.LockMailboxAsync(userId, mailboxId, cancellationToken, requireConnected: false);
         var draft = await _data.DraftAsync(mailbox, draftId, cancellationToken);
-        var source = await _data.SourceAsync(mailbox, draft.EmailMessageId, cancellationToken);
         // A repeated approval of the same successfully sent version is a read, never a second send.
         if (draft.Status == ReplyDraftStatus.Sent && draft.ApprovedVersion == expectedVersion)
-            return new ReplySendContext(source, draft);
+            return new ReplySendContext(null, draft);
         if (draft.Status is ReplyDraftStatus.Sending or ReplyDraftStatus.SendUnknown)
             throw new AppException(ErrorCode.ReplySendUnknown, "Sending is in progress or uncertain. Check Gmail Sent.");
         ReplyDraftData.CheckVersion(draft, expectedVersion);
         if (draft.Status != ReplyDraftStatus.Draft)
             throw new AppException(ErrorCode.DraftNotEditable, "Only ready drafts can be approved.");
+        if (mailbox.Status != MailboxStatus.Connected)
+            throw new AppException(ErrorCode.MailboxReconnectRequired, "Reconnect the mailbox first.");
+        if (draft.EmailMessageId is null)
+            throw new AppException(ErrorCode.DraftOutdated, "The source email was removed from the inbox cache.");
+        var source = await _data.SourceAsync(mailbox, draft.SourceEmailId, cancellationToken);
         if (ReplyDraftData.IsOutdated(draft, source))
             throw new AppException(ErrorCode.DraftOutdated, "The source email or mailbox changed.");
         return new ReplySendContext(source, draft);
@@ -85,7 +89,7 @@ public sealed class ReplySendRepository : IReplySendStore
     {
         // A callback may finish after reconnect/revocation: record its outcome without enabling another send.
         await _dbContext.MailboxConnections.FromSqlInterpolated(
-            $"SELECT * FROM \"MailboxConnections\" WHERE \"Id\" = {context.Source.MailboxId} FOR UPDATE")
+            $"SELECT * FROM \"MailboxConnections\" WHERE \"Id\" = {context.Draft.MailboxConnectionId} FOR UPDATE")
             .AsNoTracking().ToListAsync(cancellationToken);
         return await _dbContext.ReplyDrafts.AsNoTracking().SingleOrDefaultAsync(x => x.Id == context.Draft.Id
             && x.Status == ReplyDraftStatus.Sending && x.SendAttemptId == context.Draft.SendAttemptId, cancellationToken);

@@ -9,8 +9,9 @@ public sealed record ReplyGenerationContext(Guid DraftId, Guid GenerationId, Rep
 public sealed record ReplyThread(ProviderEmail Source, string To, string InReplyTo, string[] References,
     string Fingerprint, IReadOnlyList<ProviderEmail> Messages, bool Truncated);
 public sealed record GeneratedReply(string BodyText, string Model, bool InputTruncated);
-public sealed record ReplySendContext(ReplySource Source, ReplyDraft Draft);
+public sealed record ReplySendContext(ReplySource? Source, ReplyDraft Draft);
 public sealed record ReplySendResult(string MessageId, string ThreadId);
+public sealed record ReplyDraftPage(IReadOnlyList<ReplyDraftResponse> Items, int Page, int PageSize, int Total);
 public sealed record ReplyDraftResponse(Guid Id, Guid EmailId, Guid Version, string Status, string From, string To,
     string Subject, string BodyText, bool IsOutdated, bool InputTruncated, string Model, string? ProviderMessageId,
     string OutgoingMessageId, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, DateTimeOffset? SentAt, string? LastErrorCode);

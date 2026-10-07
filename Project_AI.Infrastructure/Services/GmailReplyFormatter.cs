@@ -54,7 +54,7 @@ internal static class GmailReplyFormatter
         if (!ValidReference(draft.InReplyTo) || draft.References.Any(x => !ValidReference(x))
             || draft.Subject.Length > 2000 || draft.Subject.Any(c => c is '\r' or '\n' or '\0')) throw InvalidTarget();
         var message = new MimeMessage();
-        message.From.Add(new MailboxAddress("", Address(context.Source.MailboxEmail)));
+        message.From.Add(new MailboxAddress("", Address(context.Source!.MailboxEmail)));
         message.To.Add(new MailboxAddress("", Address(draft.To)));
         message.Subject = draft.Subject; // Gmail thread replies require the matching subject.
         message.MessageId = draft.OutgoingMessageId;

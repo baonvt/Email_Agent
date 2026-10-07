@@ -30,7 +30,8 @@ public sealed class AuthDbContext : IdentityDbContext<ApplicationUser, IdentityR
         builder.Entity<ReplyDraft>(b =>
         {
             b.HasKey(x => x.Id);
-            b.HasIndex(x => x.EmailMessageId).IsUnique();
+            b.HasIndex(x => x.SourceEmailId).IsUnique();
+            b.HasIndex(x => new { x.MailboxConnectionId, x.CreatedAt });
             b.Property(x => x.Version).IsConcurrencyToken();
             b.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
             b.Property(x => x.From).HasMaxLength(320);
@@ -44,8 +45,8 @@ public sealed class AuthDbContext : IdentityDbContext<ApplicationUser, IdentityR
             b.Property(x => x.OutgoingMessageId).HasMaxLength(128);
             b.Property(x => x.ProviderMessageId).HasMaxLength(128);
             b.Property(x => x.LastErrorCode).HasMaxLength(64);
-            b.HasOne<EmailMessage>().WithOne().HasForeignKey<ReplyDraft>(x => x.EmailMessageId)
-                .OnDelete(DeleteBehavior.Cascade);
+            b.HasOne<EmailMessage>().WithMany().HasForeignKey(x => x.EmailMessageId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne<MailboxConnection>().WithMany().HasForeignKey(x => x.MailboxConnectionId).OnDelete(DeleteBehavior.Cascade);
         });
         builder.Entity<ApplicationUser>().Property(x => x.DisplayName).HasMaxLength(100);
         builder.Entity<ApplicationUser>().HasIndex(x => x.NormalizedEmail).IsUnique();

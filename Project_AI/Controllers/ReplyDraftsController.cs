@@ -30,6 +30,11 @@ public sealed class ReplyDraftsController : ControllerBase
     public Task<IReadOnlyList<ReplyDraftResponse>> List(Guid mailboxId, Guid emailId, CancellationToken cancellationToken) =>
         _drafts.ListAsync(Session().UserId, mailboxId, emailId, cancellationToken);
 
+    [HttpGet("drafts")]
+    public Task<ReplyDraftPage> ListMailbox(Guid mailboxId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default) =>
+        _drafts.ListMailboxAsync(Session().UserId, mailboxId, page, pageSize, cancellationToken);
+
     [HttpGet("drafts/{draftId:guid}")]
     public Task<ReplyDraftResponse> Get(Guid mailboxId, Guid draftId, CancellationToken cancellationToken) =>
         _drafts.GetAsync(Session().UserId, mailboxId, draftId, cancellationToken);
